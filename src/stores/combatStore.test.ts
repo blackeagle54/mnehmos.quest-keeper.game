@@ -14,8 +14,9 @@ vi.mock('../services/mcpClient', () => ({
   },
 }));
 
-import { useCombatStore, recordCombatLog } from './combatStore';
+import { useCombatStore, recordCombatLog, recordAoePreview } from './combatStore';
 import type { CombatLogEntryInput } from '../utils/combatLog';
+import type { Point } from '../utils/aoe';
 
 beforeEach(() => {
   useCombatStore.setState({ combatLog: [] });
@@ -149,5 +150,52 @@ describe('combatStore — requestMove (click-to-move) [COMBAT-002]', () => {
     useCombatStore.setState({ activeEncounterId: null });
     await useCombatStore.getState().requestMove('hero-1', 12, 8);
     expect(callToolMock).not.toHaveBeenCalledWith('execute_combat_action', expect.anything());
+  });
+});
+
+describe('combatStore — AoE preview [COMBAT-003]', () => {
+  beforeEach(() => {
+    useCombatStore.setState({ aoePreview: null });
+  });
+
+  it('starts with no AoE preview', () => {
+    expect(useCombatStore.getState().aoePreview).toBeNull();
+  });
+
+  it('setAoePreview stores tiles and a color', () => {
+    const tiles: Point[] = [{ x: 10, y: 10 }, { x: 11, y: 10 }];
+    useCombatStore.getState().setAoePreview(tiles, '#ff0000');
+    expect(useCombatStore.getState().aoePreview).toEqual({ tiles, color: '#ff0000' });
+  });
+
+  it('clearAoePreview removes the preview', () => {
+    useCombatStore.getState().setAoePreview([{ x: 0, y: 0 }]);
+    useCombatStore.getState().clearAoePreview();
+    expect(useCombatStore.getState().aoePreview).toBeNull();
+  });
+
+  it('clearCombat also clears the AoE preview', () => {
+    useCombatStore.getState().setAoePreview([{ x: 0, y: 0 }]);
+    useCombatStore.getState().clearCombat();
+    expect(useCombatStore.getState().aoePreview).toBeNull();
+  });
+
+  it('recordAoePreview parses affectedTiles (string + object forms) from a tool result', () => {
+    const result = {
+      content: [
+        { type: 'text', text: JSON.stringify({ affectedTiles: [{ x: 10, y: 10 }, '11,10', { x: 12, y: 11 }] }) },
+      ],
+    };
+    recordAoePreview(result);
+    expect(useCombatStore.getState().aoePreview?.tiles).toEqual([
+      { x: 10, y: 10 },
+      { x: 11, y: 10 },
+      { x: 12, y: 11 },
+    ]);
+  });
+
+  it('recordAoePreview is a no-op when the result has no affectedTiles', () => {
+    recordAoePreview({ content: [{ type: 'text', text: '{"message":"ok"}' }] });
+    expect(useCombatStore.getState().aoePreview).toBeNull();
   });
 });
