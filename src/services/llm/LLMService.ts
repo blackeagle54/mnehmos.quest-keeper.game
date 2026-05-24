@@ -236,6 +236,16 @@ class LLMService {
                 console.warn('[LLMService] Failed to clear combat state:', e);
             }
         }
+
+        // Record combat events into the combat log for any combat tool [COMBAT-001]
+        if (COMBAT_TOOLS.has(toolName)) {
+            try {
+                const { recordCombatLog } = await import('../../stores/combatStore');
+                recordCombatLog(toolName, result);
+            } catch (e) {
+                console.warn(`[LLMService] Failed to record combat log for ${toolName}:`, e);
+            }
+        }
     }
 
     public async sendMessage(history: ChatMessage[]): Promise<string> {

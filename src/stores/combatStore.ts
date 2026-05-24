@@ -5,6 +5,7 @@ import { useGameStateStore } from './gameStateStore';
 
 import { parseMcpResponse, debounce, extractEmbeddedStateJson } from '../utils/mcpUtils';
 import type { CombatLogEntry, CombatLogEntryInput } from '../utils/combatLog';
+import { deriveCombatLogEntries } from '../utils/combatLog';
 
 export type Vector3 = { x: number; y: number; z: number };
 
@@ -907,5 +908,18 @@ export function handleCombatToolResponse(responseText: string): void {
   const embedded = extractEmbeddedStateJson(responseText);
   if (embedded) {
     useCombatStore.getState().updateFromStateJson(embedded);
+  }
+}
+
+/**
+ * Derive combat-log entries from a combat tool's result (MCP-wrapped or direct
+ * JSON) and append them to the store. No-op when the result carries no
+ * structured data (e.g. pre-formatted text responses). [COMBAT-001]
+ */
+export function recordCombatLog(toolName: string, result: any): void {
+  const data = parseMcpResponse<any>(result, null);
+  const entries = deriveCombatLogEntries(toolName, data);
+  if (entries.length > 0) {
+    useCombatStore.getState().appendCombatLog(entries);
   }
 }

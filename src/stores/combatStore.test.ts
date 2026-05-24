@@ -12,7 +12,7 @@ vi.mock('../services/mcpClient', () => ({
   },
 }));
 
-import { useCombatStore } from './combatStore';
+import { useCombatStore, recordCombatLog } from './combatStore';
 import type { CombatLogEntryInput } from '../utils/combatLog';
 
 beforeEach(() => {
@@ -72,6 +72,53 @@ describe('combatStore — combat log', () => {
   it('clearCombat also clears the combat log', () => {
     useCombatStore.getState().appendCombatLog([{ type: 'info', message: 'x' }]);
     useCombatStore.getState().clearCombat();
+    expect(useCombatStore.getState().combatLog).toEqual([]);
+  });
+});
+
+describe('combatStore — recordCombatLog (live pipeline)', () => {
+  beforeEach(() => {
+    useCombatStore.setState({ combatLog: [] });
+  });
+
+  it('derives and appends entries from an MCP-wrapped combat result', () => {
+    const result = {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            actionType: 'attack',
+            hit: true,
+            damage: 5,
+            attackerName: 'Hero',
+            targetName: 'Goblin',
+          }),
+        },
+      ],
+    };
+    recordCombatLog('execute_combat_action', result);
+
+    const log = useCombatStore.getState().combatLog;
+    expect(log).toHaveLength(1);
+    expect(log[0].type).toBe('attack-hit');
+    expect(log[0].message).toContain('Hero');
+    expect(log[0].amount).toBe(5);
+  });
+
+  it('handles direct (unwrapped) JSON results', () => {
+    recordCombatLog('advance_turn', { nextParticipant: { name: 'Goblin' }, round: 2, newRound: true });
+    expect(useCombatStore.getState().combatLog.map((e) => e.type)).toEqual(['round', 'turn']);
+  });
+
+  it('is a no-op for non-combat tools', () => {
+    recordCombatLog('get_inventory', { content: [{ type: 'text', text: '{"items":[]}' }] });
+    expect(useCombatStore.getState().combatLog).toEqual([]);
+  });
+
+  it('is a no-op for pre-formatted text responses without structured data', () => {
+    recordCombatLog('execute_combat_action', {
+      content: [{ type: 'text', text: '⚔️ HIT! Hero strikes Goblin!' }],
+    });
     expect(useCombatStore.getState().combatLog).toEqual([]);
   });
 });
