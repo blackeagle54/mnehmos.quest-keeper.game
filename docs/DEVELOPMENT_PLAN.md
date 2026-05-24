@@ -139,7 +139,7 @@ Quest Keeper AI combines:
    - ✅ Creature conditions system
    - ✅ Initiative and turn order
    - ⬜ Area effects visualization
-   - ⬜ Click-to-move interactions
+   - ✅ Click-to-move interactions
    - ✅ Combat log panel
 
 **Deliverables:**
@@ -147,7 +147,7 @@ Quest Keeper AI combines:
 2. ✅ 3D battlemap with tokens and terrain
 3. ⬜ AoE visualization
 4. ✅ Combat log panel
-5. ⬜ Interactive token movement (drag-and-drop)
+5. ✅ Interactive token movement (click-to-move; drag-and-drop optional)
 
 ---
 
