@@ -140,13 +140,13 @@ Quest Keeper AI combines:
    - ✅ Initiative and turn order
    - ⬜ Area effects visualization
    - ⬜ Click-to-move interactions
-   - ⬜ Combat log panel
+   - ✅ Combat log panel
 
 **Deliverables:**
 1. ✅ Spatial combat with grid system
 2. ✅ 3D battlemap with tokens and terrain
 3. ⬜ AoE visualization
-4. ⬜ Combat log panel
+4. ✅ Combat log panel
 5. ⬜ Interactive token movement (drag-and-drop)
 
 ---
