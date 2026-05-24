@@ -6,9 +6,11 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+const { callToolMock } = vi.hoisted(() => ({ callToolMock: vi.fn() }));
+
 vi.mock('../services/mcpClient', () => ({
   mcpManager: {
-    combatClient: { callTool: vi.fn() },
+    combatClient: { callTool: callToolMock },
   },
 }));
 
@@ -120,5 +122,32 @@ describe('combatStore — recordCombatLog (live pipeline)', () => {
       content: [{ type: 'text', text: '⚔️ HIT! Hero strikes Goblin!' }],
     });
     expect(useCombatStore.getState().combatLog).toEqual([]);
+  });
+});
+
+describe('combatStore — requestMove (click-to-move) [COMBAT-002]', () => {
+  beforeEach(() => {
+    useCombatStore.setState({
+      activeEncounterId: 'enc-1',
+      activeEncounterSessionId: null,
+      isSyncing: false,
+      lastSyncTime: 0,
+    });
+  });
+
+  it('issues an execute_combat_action move for the entity to the target MCP tile', async () => {
+    await useCombatStore.getState().requestMove('hero-1', 12, 8);
+    expect(callToolMock).toHaveBeenCalledWith('execute_combat_action', {
+      encounterId: 'enc-1',
+      action: 'move',
+      actorId: 'hero-1',
+      targetPosition: { x: 12, y: 8 },
+    });
+  });
+
+  it('does nothing when there is no active encounter', async () => {
+    useCombatStore.setState({ activeEncounterId: null });
+    await useCombatStore.getState().requestMove('hero-1', 12, 8);
+    expect(callToolMock).not.toHaveBeenCalledWith('execute_combat_action', expect.anything());
   });
 });

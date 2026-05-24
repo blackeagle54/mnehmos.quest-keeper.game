@@ -199,6 +199,8 @@ interface CombatState {
   combatLog: CombatLogEntry[];
   appendCombatLog: (entries: CombatLogEntryInput[]) => void;
   clearCombatLog: () => void;
+  // Click-to-move: issue a validated move for a token, then re-sync. [COMBAT-002]
+  requestMove: (entityId: string, mcpX: number, mcpY: number) => Promise<void>;
 
   // Auto-skip logic
   consecutiveSkips: number;
@@ -849,6 +851,26 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   }),
 
   clearCombatLog: () => set({ combatLog: [] }),
+
+  requestMove: async (entityId, mcpX, mcpY) => {
+    const { activeEncounterId } = get();
+    if (!activeEncounterId) {
+      console.warn('[requestMove] No active encounter; cannot move token.');
+      return;
+    }
+    try {
+      await mcpManager.combatClient.callTool('execute_combat_action', {
+        encounterId: activeEncounterId,
+        action: 'move',
+        actorId: entityId,
+        targetPosition: { x: mcpX, y: mcpY },
+      });
+      // Engine validated + persisted the move; refresh the battlemap from authoritative state.
+      await get().syncCombatState(true);
+    } catch (e) {
+      console.warn('[requestMove] Move failed:', e);
+    }
+  },
 
   checkAutoSkipTurn: async () => {
     // Backend now handles skipping dead participants in nextTurnWithConditions()
