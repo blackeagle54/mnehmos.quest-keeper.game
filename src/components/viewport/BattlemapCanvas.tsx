@@ -6,6 +6,7 @@ import { CameraControls } from './CameraControls';
 import { EntityLayer } from './EntityLayer';
 import { TerrainLayer } from './Terrain';
 import { AuraLayer } from './AuraLayer';
+import { AoeLayer } from './AoeLayer';
 import { LineOfSight } from './LineOfSight';
 import { CombatHUD } from '../hud/CombatHUD';
 import { useCombatStore } from '../../stores/combatStore';
@@ -92,6 +93,7 @@ export const BattlemapCanvas: React.FC<BattlemapCanvasProps> = ({ active = true 
         <GridSystem />
         <TerrainLayer />
         <AuraLayer />  {/* Render auras before entities */}
+        <AoeLayer />   {/* AoE templates on the ground, under tokens */}
         <EntityLayer />
         <LineOfSight />
         <CameraControls />
