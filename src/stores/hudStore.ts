@@ -6,6 +6,7 @@ interface HudState {
   isSpellbookOpen: boolean;
   isRestPanelOpen: boolean;
   isLootPanelOpen: boolean;
+  isCombatLogOpen: boolean;
   activePanel: 'none' | 'character' | 'inventory' | 'spellbook' | 'party';
   
   // Selection mirrors combatStore but manages UI-specifics
@@ -19,6 +20,7 @@ interface HudState {
   toggleSpellbook: () => void;
   toggleRestPanel: () => void;
   toggleLootPanel: () => void;
+  toggleCombatLog: () => void;
   setActivePanel: (panel: HudState['activePanel']) => void;
   setSelectedEntityId: (id: string | null) => void;
   setQuickActionText: (text: string | null) => void;
@@ -31,6 +33,7 @@ export const useHudStore = create<HudState>((set) => ({
   isSpellbookOpen: false,
   isRestPanelOpen: false,
   isLootPanelOpen: false,
+  isCombatLogOpen: false,
   activePanel: 'none',
   selectedEntityId: null,
   quickActionText: null,
@@ -53,6 +56,10 @@ export const useHudStore = create<HudState>((set) => ({
 
   toggleLootPanel: () => set((state) => ({ 
     isLootPanelOpen: !state.isLootPanelOpen 
+  })),
+
+  toggleCombatLog: () => set((state) => ({
+    isCombatLogOpen: !state.isCombatLogOpen
   })),
 
   setActivePanel: (panel) => set({ activePanel: panel }),

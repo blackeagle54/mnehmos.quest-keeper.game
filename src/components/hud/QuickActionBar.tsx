@@ -10,6 +10,8 @@ import { mcpManager } from '../../services/mcpClient';
 export const QuickActionBar: React.FC = () => {
     const toggleInventory = useHudStore(s => s.toggleInventory);
     const toggleSpellbook = useHudStore(s => s.toggleSpellbook);
+    const toggleCombatLog = useHudStore(s => s.toggleCombatLog);
+    const isCombatLogOpen = useHudStore(s => s.isCombatLogOpen);
     
     // Visualization tools from combat store
     const showLineOfSight = useCombatStore(s => s.showLineOfSight);
@@ -59,6 +61,12 @@ export const QuickActionBar: React.FC = () => {
                 label="Spellbook" 
                 icon="📖" 
                 onClick={toggleSpellbook}
+            />
+            <ActionButton
+                label="Combat Log"
+                icon="📜"
+                onClick={toggleCombatLog}
+                active={isCombatLogOpen}
             />
             <ActionButton 
                 label="Line of Sight" 
