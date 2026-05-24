@@ -4,6 +4,7 @@ import { mcpManager } from '../services/mcpClient';
 import { useGameStateStore } from './gameStateStore';
 
 import { parseMcpResponse, debounce, extractEmbeddedStateJson } from '../utils/mcpUtils';
+import type { CombatLogEntry, CombatLogEntryInput } from '../utils/combatLog';
 
 export type Vector3 = { x: number; y: number; z: number };
 
@@ -193,12 +194,22 @@ interface CombatState {
   removeAura: (id: string) => void;
   syncAuras: () => Promise<void>;
   
+  // Combat log (action history) [COMBAT-001]
+  combatLog: CombatLogEntry[];
+  appendCombatLog: (entries: CombatLogEntryInput[]) => void;
+  clearCombatLog: () => void;
+
   // Auto-skip logic
   consecutiveSkips: number;
   checkAutoSkipTurn: () => Promise<void>;
 }
 
 const MOCK_ENTITIES: Entity[] = [];
+
+/** Max retained combat-log entries; older entries are trimmed. [COMBAT-001] */
+const MAX_COMBAT_LOG = 500;
+/** Monotonic counter so log entry ids stay unique even within the same millisecond. */
+let combatLogSeq = 0;
 
 /**
  * Determine entity type and color based on isEnemy flag and name
@@ -586,6 +597,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   measureEnd: null,
   cursorPosition: null,
   consecutiveSkips: 0,
+  combatLog: [],
 
   addEntity: (entity) => set((state) => ({
     entities: [...state.entities, entity]
@@ -805,7 +817,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     measureMode: false,
     measureStart: null,
     measureEnd: null,
-    cursorPosition: null
+    cursorPosition: null,
+    combatLog: []
   })),
 
   setClickedTileCoord: (coord) => set({ clickedTileCoord: coord }),
@@ -819,6 +832,23 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   setMeasureEnd: (pos) => set({ measureEnd: pos }),
   setCursorPosition: (pos) => set({ cursorPosition: pos }),
   
+  // Combat log (action history) [COMBAT-001]
+  appendCombatLog: (entries) => set((state) => {
+    if (!entries || entries.length === 0) return {};
+    const now = Date.now();
+    const stamped: CombatLogEntry[] = entries.map((e) => ({
+      ...e,
+      id: `clog-${now}-${combatLogSeq++}`,
+      timestamp: now,
+    }));
+    const combined = [...state.combatLog, ...stamped];
+    return {
+      combatLog: combined.length > MAX_COMBAT_LOG ? combined.slice(-MAX_COMBAT_LOG) : combined,
+    };
+  }),
+
+  clearCombatLog: () => set({ combatLog: [] }),
+
   checkAutoSkipTurn: async () => {
     // Backend now handles skipping dead participants in nextTurnWithConditions()
     // This function is disabled to prevent double-skipping and infinite loops
