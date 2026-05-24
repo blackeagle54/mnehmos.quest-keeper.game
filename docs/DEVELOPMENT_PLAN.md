@@ -116,9 +116,9 @@ Quest Keeper AI combines:
 
 ---
 
-### Phase 4: Enhanced Combat 🔧 PARTIAL
+### Phase 4: Enhanced Combat ✅ COMPLETE
 **Goal:** Tactical, spatial, visual combat
-**Status:** 60% Complete
+**Status:** Complete
 
 **Components:**
 1. **Grid-Based Positioning** ✅
@@ -134,18 +134,18 @@ Quest Keeper AI combines:
    - 3-point dynamic lighting
    - Camera controls (position, zoom, rotation)
 
-3. **Combat Features** 🔧 Partial
+3. **Combat Features** ✅
    - ✅ Cover mechanics (half/three-quarters/full)
    - ✅ Creature conditions system
    - ✅ Initiative and turn order
-   - ⬜ Area effects visualization
+   - ✅ Area effects visualization
    - ✅ Click-to-move interactions
    - ✅ Combat log panel
 
 **Deliverables:**
 1. ✅ Spatial combat with grid system
 2. ✅ 3D battlemap with tokens and terrain
-3. ⬜ AoE visualization
+3. ✅ AoE visualization
 4. ✅ Combat log panel
 5. ✅ Interactive token movement (click-to-move; drag-and-drop optional)
 
@@ -296,9 +296,9 @@ Phase 6: 40% effort (Workflow browser)
 ## Next Actions
 
 ### Immediate Priorities
-1. **Phase 3: Progression Systems** - Begin skill system implementation
-2. **Combat Log Panel** - Add combat action history display
-3. **Interactive Token Movement** - Click-to-move on battlemap
+1. **Phase 5: Session Management** - Context condensing (highest-impact), save slots, export
+2. **Phase 3: Progression Systems** - Skill system (requires rpg-mcp schema + tools)
+   _(Phase 4 Enhanced Combat complete: combat log, click-to-move, AoE viz all shipped)_
 
 ### Future Priorities
 1. **Context Condensing** - LLM token management for long sessions
