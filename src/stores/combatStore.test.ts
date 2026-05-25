@@ -147,6 +147,13 @@ describe('combatStore — requestMove (click-to-move) [COMBAT-002]', () => {
     });
   });
 
+  it('skips the move when the token is already on the target tile (dedup) [COMBAT-002]', async () => {
+    // viz (2,_,-2) → mcp tile (12, 8); requesting a move to that same tile is a no-op.
+    useCombatStore.setState({ entities: [{ id: 'hero-1', position: { x: 2, y: 0.4, z: -2 } }] as any });
+    await useCombatStore.getState().requestMove('hero-1', 12, 8);
+    expect(callToolMock).not.toHaveBeenCalledWith('execute_combat_action', expect.anything());
+  });
+
   it('does nothing when there is no active encounter', async () => {
     useCombatStore.setState({ activeEncounterId: null });
     await useCombatStore.getState().requestMove('hero-1', 12, 8);

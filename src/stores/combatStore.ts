@@ -861,9 +861,14 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   clearCombatLog: () => set({ combatLog: [] }),
 
   requestMove: async (entityId, mcpX, mcpY) => {
-    const { activeEncounterId } = get();
+    const { activeEncounterId, entities } = get();
     if (!activeEncounterId) {
       console.warn('[requestMove] No active encounter; cannot move token.');
+      return;
+    }
+    // Dedupe: skip if the token is already on the target tile (viz coord + 10 = mcp). [COMBAT-002]
+    const entity = entities.find((e) => e.id === entityId);
+    if (entity && Math.round(entity.position.x) + 10 === mcpX && Math.round(entity.position.z) + 10 === mcpY) {
       return;
     }
     try {
