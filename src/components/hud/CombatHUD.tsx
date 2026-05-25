@@ -7,6 +7,7 @@ import { CharacterQuickView } from './CharacterQuickView';
 import { QuickActionBar } from './QuickActionBar';
 import { RestPanel } from './RestPanel';
 import { LootPanel } from './LootPanel';
+import { CombatLogPanel } from './CombatLogPanel';
 import { InventoryView } from '../viewport/InventoryView';
 import { useCombatStore } from '../../stores/combatStore';
 import { useHudStore } from '../../stores/hudStore';
@@ -51,6 +52,9 @@ export const CombatHUD: React.FC = () => {
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
         <QuickActionBar />
       </div>
+
+      {/* Combat log (self-gates on hudStore.isCombatLogOpen) */}
+      <CombatLogPanel />
 
       {/* Modals */}
       <RestPanel isOpen={isRestPanelOpen} onClose={toggleRestPanel} />

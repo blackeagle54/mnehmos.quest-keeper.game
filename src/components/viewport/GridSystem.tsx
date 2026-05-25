@@ -45,6 +45,8 @@ export const GridSystem: React.FC = () => {
   const entities = useCombatStore((state) => state.entities);
   const terrain = useCombatStore((state) => state.terrain);
   const setClickedTileCoord = useCombatStore((state) => state.setClickedTileCoord);
+  const selectedEntityId = useCombatStore((state) => state.selectedEntityId);
+  const requestMove = useCombatStore((state) => state.requestMove);
   const clickedTileCoord = useCombatStore((state) => state.clickedTileCoord);
   
   // Calculate dynamic bounds from all entities and terrain
@@ -149,7 +151,12 @@ export const GridSystem: React.FC = () => {
     } else {
       const mcpX = vizX + 10;
       const mcpZ = vizZ + 10;
-      if (clickedTileCoord && clickedTileCoord.x === mcpX && clickedTileCoord.y === mcpZ) {
+      if (selectedEntityId) {
+        // Click-to-move: send the selected token to this tile. requestMove dedupes
+        // when the token is already there; the engine validates the rest. [COMBAT-002]
+        requestMove(selectedEntityId, mcpX, mcpZ);
+        setClickedTileCoord({ x: mcpX, y: mcpZ });
+      } else if (clickedTileCoord && clickedTileCoord.x === mcpX && clickedTileCoord.y === mcpZ) {
         setClickedTileCoord(null);
       } else {
         setClickedTileCoord({ x: mcpX, y: mcpZ });

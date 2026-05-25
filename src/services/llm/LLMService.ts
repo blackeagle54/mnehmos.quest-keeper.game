@@ -236,6 +236,36 @@ class LLMService {
                 console.warn('[LLMService] Failed to clear combat state:', e);
             }
         }
+
+        // Record combat events into the combat log for any combat tool [COMBAT-001]
+        if (COMBAT_TOOLS.has(toolName)) {
+            try {
+                const { recordCombatLog } = await import('../../stores/combatStore');
+                recordCombatLog(toolName, result);
+            } catch (e) {
+                console.warn(`[LLMService] Failed to record combat log for ${toolName}:`, e);
+            }
+        }
+
+        // Show engine-computed AoE tiles on the battlemap [COMBAT-003]
+        if (toolName === 'combat_map' || toolName === 'calculate_aoe') {
+            try {
+                const { recordAoePreview } = await import('../../stores/combatStore');
+                recordAoePreview(result);
+            } catch (e) {
+                console.warn(`[LLMService] Failed to record AoE preview for ${toolName}:`, e);
+            }
+        }
+
+        // AoE preview is transient — clear it once the turn advances. [COMBAT-003]
+        if (toolName === 'advance_turn') {
+            try {
+                const { useCombatStore } = await import('../../stores/combatStore');
+                useCombatStore.getState().clearAoePreview();
+            } catch {
+                /* noop */
+            }
+        }
     }
 
     public async sendMessage(history: ChatMessage[]): Promise<string> {

@@ -15,6 +15,7 @@ describe('hudStore', () => {
       activePanel: 'none',
       selectedEntityId: null,
       quickActionText: null,
+      isCombatLogOpen: false,
     });
   });
 
@@ -194,6 +195,23 @@ describe('hudStore', () => {
       state.setActivePanel('party');
       
       expect(useHudStore.getState().selectedEntityId).toBe('npc-1');
+    });
+  });
+
+  describe('toggleCombatLog', () => {
+    it('is closed initially', () => {
+      expect(useHudStore.getState().isCombatLogOpen).toBe(false);
+    });
+
+    it('opens the combat log when closed', () => {
+      useHudStore.getState().toggleCombatLog();
+      expect(useHudStore.getState().isCombatLogOpen).toBe(true);
+    });
+
+    it('closes the combat log when open', () => {
+      useHudStore.setState({ isCombatLogOpen: true });
+      useHudStore.getState().toggleCombatLog();
+      expect(useHudStore.getState().isCombatLogOpen).toBe(false);
     });
   });
 });

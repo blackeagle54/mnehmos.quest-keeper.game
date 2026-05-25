@@ -4,6 +4,9 @@ import { mcpManager } from '../services/mcpClient';
 import { useGameStateStore } from './gameStateStore';
 
 import { parseMcpResponse, debounce, extractEmbeddedStateJson } from '../utils/mcpUtils';
+import type { CombatLogEntry, CombatLogEntryInput } from '../utils/combatLog';
+import { deriveCombatLogEntries } from '../utils/combatLog';
+import type { Point } from '../utils/aoe';
 
 export type Vector3 = { x: number; y: number; z: number };
 
@@ -193,12 +196,29 @@ interface CombatState {
   removeAura: (id: string) => void;
   syncAuras: () => Promise<void>;
   
+  // Combat log (action history) [COMBAT-001]
+  combatLog: CombatLogEntry[];
+  appendCombatLog: (entries: CombatLogEntryInput[]) => void;
+  clearCombatLog: () => void;
+  // Click-to-move: issue a validated move for a token, then re-sync. [COMBAT-002]
+  requestMove: (entityId: string, mcpX: number, mcpY: number) => Promise<void>;
+
+  // AoE preview: highlighted affected tiles to show on the battlemap. [COMBAT-003]
+  aoePreview: { tiles: Point[]; color: string } | null;
+  setAoePreview: (tiles: Point[], color?: string) => void;
+  clearAoePreview: () => void;
+
   // Auto-skip logic
   consecutiveSkips: number;
   checkAutoSkipTurn: () => Promise<void>;
 }
 
 const MOCK_ENTITIES: Entity[] = [];
+
+/** Max retained combat-log entries; older entries are trimmed. [COMBAT-001] */
+const MAX_COMBAT_LOG = 500;
+/** Monotonic counter so log entry ids stay unique even within the same millisecond. */
+let combatLogSeq = 0;
 
 /**
  * Determine entity type and color based on isEnemy flag and name
@@ -586,6 +606,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   measureEnd: null,
   cursorPosition: null,
   consecutiveSkips: 0,
+  combatLog: [],
+  aoePreview: null,
 
   addEntity: (entity) => set((state) => ({
     entities: [...state.entities, entity]
@@ -805,7 +827,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     measureMode: false,
     measureStart: null,
     measureEnd: null,
-    cursorPosition: null
+    cursorPosition: null,
+    combatLog: [],
+    aoePreview: null
   })),
 
   setClickedTileCoord: (coord) => set({ clickedTileCoord: coord }),
@@ -819,6 +843,51 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   setMeasureEnd: (pos) => set({ measureEnd: pos }),
   setCursorPosition: (pos) => set({ cursorPosition: pos }),
   
+  // Combat log (action history) [COMBAT-001]
+  appendCombatLog: (entries) => set((state) => {
+    if (!entries || entries.length === 0) return {};
+    const now = Date.now();
+    const stamped: CombatLogEntry[] = entries.map((e) => ({
+      ...e,
+      id: `clog-${now}-${combatLogSeq++}`,
+      timestamp: now,
+    }));
+    const combined = [...state.combatLog, ...stamped];
+    return {
+      combatLog: combined.length > MAX_COMBAT_LOG ? combined.slice(-MAX_COMBAT_LOG) : combined,
+    };
+  }),
+
+  clearCombatLog: () => set({ combatLog: [] }),
+
+  requestMove: async (entityId, mcpX, mcpY) => {
+    const { activeEncounterId, entities } = get();
+    if (!activeEncounterId) {
+      console.warn('[requestMove] No active encounter; cannot move token.');
+      return;
+    }
+    // Dedupe: skip if the token is already on the target tile (viz coord + 10 = mcp). [COMBAT-002]
+    const entity = entities.find((e) => e.id === entityId);
+    if (entity && Math.round(entity.position.x) + 10 === mcpX && Math.round(entity.position.z) + 10 === mcpY) {
+      return;
+    }
+    try {
+      await mcpManager.combatClient.callTool('execute_combat_action', {
+        encounterId: activeEncounterId,
+        action: 'move',
+        actorId: entityId,
+        targetPosition: { x: mcpX, y: mcpY },
+      });
+      // Engine validated + persisted the move; refresh the battlemap from authoritative state.
+      await get().syncCombatState(true);
+    } catch (e) {
+      console.warn('[requestMove] Move failed:', e);
+    }
+  },
+
+  setAoePreview: (tiles, color = '#ff8800') => set({ aoePreview: { tiles, color } }),
+  clearAoePreview: () => set({ aoePreview: null }),
+
   checkAutoSkipTurn: async () => {
     // Backend now handles skipping dead participants in nextTurnWithConditions()
     // This function is disabled to prevent double-skipping and infinite loops
@@ -878,4 +947,43 @@ export function handleCombatToolResponse(responseText: string): void {
   if (embedded) {
     useCombatStore.getState().updateFromStateJson(embedded);
   }
+}
+
+/**
+ * Derive combat-log entries from a combat tool's result (MCP-wrapped or direct
+ * JSON) and append them to the store. No-op when the result carries no
+ * structured data (e.g. pre-formatted text responses). [COMBAT-001]
+ */
+export function recordCombatLog(toolName: string, result: any): void {
+  const data = parseMcpResponse<any>(result, null);
+  const entries = deriveCombatLogEntries(toolName, data);
+  if (entries.length > 0) {
+    useCombatStore.getState().appendCombatLog(entries);
+  }
+}
+
+/** Parse a tile from "x,y" string or {x,y} object form. */
+function parseAoeTile(p: any): Point | null {
+  if (typeof p === 'string') {
+    const [xs, ys] = p.split(',');
+    const x = Number(xs);
+    const y = Number(ys);
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+  }
+  if (p && typeof p.x === 'number' && typeof p.y === 'number') {
+    return { x: p.x, y: p.y };
+  }
+  return null;
+}
+
+/**
+ * Set the AoE preview from a tool result that carries engine-computed
+ * `affectedTiles` (e.g. combat_map `aoe` / calculate_aoe). No-op otherwise. [COMBAT-003]
+ */
+export function recordAoePreview(result: any, color = '#ff8800'): void {
+  const data = parseMcpResponse<any>(result, null);
+  const raw = data?.affectedTiles;
+  if (!Array.isArray(raw)) return;
+  const tiles = raw.map(parseAoeTile).filter((t): t is Point => t !== null);
+  useCombatStore.getState().setAoePreview(tiles, color);
 }
