@@ -1,8 +1,8 @@
 # Quest Keeper AI - Development Plan
 
-**Version:** 2.0
-**Last Updated:** December 3, 2024
-**Status:** Active Development (Phase 2 Complete)
+**Version:** 2.1
+**Last Updated:** May 24, 2026
+**Status:** Active Development (Phase 4 Complete)
 
 ---
 
@@ -326,4 +326,5 @@ Phase 6: 40% effort (Workflow browser)
 |------|---------|---------|
 | Dec 2024 | 1.0 | Initial plan based on system reviews |
 | Dec 3, 2024 | 2.0 | Updated with implementation status - Phase 1 & 2 complete |
+| May 24, 2026 | 2.1 | Phase 4 Enhanced Combat complete — combat log, click-to-move, AoE visualization |
 

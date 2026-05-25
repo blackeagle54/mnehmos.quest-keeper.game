@@ -128,6 +128,7 @@ describe('combatStore — recordCombatLog (live pipeline)', () => {
 
 describe('combatStore — requestMove (click-to-move) [COMBAT-002]', () => {
   beforeEach(() => {
+    callToolMock.mockClear();
     useCombatStore.setState({
       activeEncounterId: 'enc-1',
       activeEncounterSessionId: null,

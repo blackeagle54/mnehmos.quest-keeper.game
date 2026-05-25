@@ -43,8 +43,9 @@ export const CombatLogPanel: React.FC = () => {
   const { containerRef, anchorRef, scrollToBottomIfNeeded } = useAutoScroll();
 
   useEffect(() => {
+    if (!isCombatLogOpen) return;
     scrollToBottomIfNeeded();
-  }, [combatLog.length, scrollToBottomIfNeeded]);
+  }, [isCombatLogOpen, combatLog.length, scrollToBottomIfNeeded]);
 
   if (!isCombatLogOpen) return null;
 

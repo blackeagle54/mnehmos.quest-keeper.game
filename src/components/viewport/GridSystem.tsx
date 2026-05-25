@@ -152,6 +152,10 @@ export const GridSystem: React.FC = () => {
       const mcpX = vizX + 10;
       const mcpZ = vizZ + 10;
       if (selectedEntityId) {
+        // Dedupe: skip if this tile is already the selected token's pending destination. [COMBAT-002]
+        if (clickedTileCoord && clickedTileCoord.x === mcpX && clickedTileCoord.y === mcpZ) {
+          return;
+        }
         // Click-to-move: send the selected token to this tile (engine validates). [COMBAT-002]
         requestMove(selectedEntityId, mcpX, mcpZ);
         setClickedTileCoord({ x: mcpX, y: mcpZ });
