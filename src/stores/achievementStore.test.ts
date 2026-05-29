@@ -87,6 +87,8 @@ describe('achievementStore', () => {
     useAchievementStore.setState({
       achievementsByCharacter: {},
       selectedCategory: null,
+      pending: 0,
+      requestVersionByCharacter: {},
       isLoading: false,
       error: null,
       lastResult: null,
@@ -557,6 +559,410 @@ describe('achievementStore', () => {
 
       expect(useAchievementStore.getState().error).toBeTruthy();
       expect(useAchievementStore.getState().isLoading).toBe(false);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Finding 4: in-flight pending counter (isLoading derived), not a shared bool.
+  // ---------------------------------------------------------------------------
+  describe('in-flight counter (isLoading derived from pending)', () => {
+    const deferred = <T,>() => {
+      let resolve!: (v: T) => void;
+      const promise = new Promise<T>((r) => {
+        resolve = r;
+      });
+      return { promise, resolve };
+    };
+
+    it('keeps isLoading true until BOTH overlapping calls resolve', async () => {
+      // Two overlapping unlocks for DIFFERENT, locally-present, locked
+      // achievements take the fast-patch path (no reconcile sync). A naive
+      // per-action `isLoading=false` in finally would flip it false after the
+      // FIRST resolves while the SECOND is still pending — the counter must keep
+      // it true until BOTH settle.
+      useAchievementStore.setState({
+        achievementsByCharacter: {
+          'char-1': {
+            catalog: [
+              { id: 'a-1', name: 'A1', description: '', category: 'combat', points: 5, unlocked: false },
+              { id: 'a-2', name: 'A2', description: '', category: 'combat', points: 5, unlocked: false },
+            ],
+            totalCount: 2,
+            unlockedCount: 0,
+            totalPoints: 0,
+            characterName: 'Aria',
+          } as any,
+        },
+      });
+
+      const first = deferred<unknown>();
+      const second = deferred<unknown>();
+      callTool.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+
+      const p1 = useAchievementStore.getState().unlock('char-1', 'a-1');
+      const p2 = useAchievementStore.getState().unlock('char-1', 'a-2');
+
+      expect(useAchievementStore.getState().pending).toBe(2);
+      expect(useAchievementStore.getState().isLoading).toBe(true);
+
+      first.resolve(
+        wrapResponse({ success: true, actionType: 'unlock', characterId: 'char-1', achievementId: 'a-1', points: 5 })
+      );
+      await p1;
+
+      // One still pending — isLoading must remain true.
+      expect(useAchievementStore.getState().pending).toBe(1);
+      expect(useAchievementStore.getState().isLoading).toBe(true);
+
+      second.resolve(
+        wrapResponse({ success: true, actionType: 'unlock', characterId: 'char-1', achievementId: 'a-2', points: 5 })
+      );
+      await p2;
+
+      expect(useAchievementStore.getState().pending).toBe(0);
+      expect(useAchievementStore.getState().isLoading).toBe(false);
+    });
+
+    it('never drives pending below zero', async () => {
+      callTool.mockResolvedValue(
+        wrapResponse({ success: true, actionType: 'list', achievements: sampleCatalog() })
+      );
+      await useAchievementStore.getState().syncAchievements('char-1');
+      expect(useAchievementStore.getState().pending).toBe(0);
+      expect(useAchievementStore.getState().isLoading).toBe(false);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Finding 5: payload guard must validate actionType, not just trust an
+  // envelope. A wrong-action / partial payload must be treated as a failure and
+  // must NOT clobber populated state.
+  // ---------------------------------------------------------------------------
+  describe('actionType payload validation (success:true but wrong shape)', () => {
+    function seedPopulated() {
+      useAchievementStore.setState({
+        achievementsByCharacter: {
+          'char-1': {
+            catalog: sampleCatalog(),
+            totalCount: 2,
+            unlockedCount: 1,
+            totalPoints: 10,
+            characterName: 'Aria',
+          } as any,
+        },
+      });
+    }
+
+    it('treats a list call that returns a get-shaped payload as a failure and does NOT wipe the catalog', async () => {
+      seedPopulated();
+      // success:true but actionType is 'get' (wrong) and there is no achievements
+      // array — defaulting to [] would clobber the populated catalog.
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'get',
+          characterId: 'char-1',
+          totalCount: 2,
+          unlockedCount: 1,
+          totalPoints: 10,
+        })
+      );
+
+      await useAchievementStore.getState().syncAchievements('char-1');
+
+      const s = useAchievementStore.getState();
+      expect(s.error).toBeTruthy();
+      expect(s.isLoading).toBe(false);
+      expect(s.achievementsByCharacter['char-1'].catalog).toHaveLength(2);
+    });
+
+    it('treats a list call with a success:true payload that lacks the achievements array as a failure', async () => {
+      seedPopulated();
+      callTool.mockResolvedValueOnce(
+        wrapResponse({ success: true, actionType: 'list', characterId: 'char-1' })
+      );
+
+      await useAchievementStore.getState().syncAchievements('char-1');
+
+      const s = useAchievementStore.getState();
+      expect(s.error).toBeTruthy();
+      expect(s.achievementsByCharacter['char-1'].catalog).toHaveLength(2);
+    });
+
+    it('treats an unlock call that returns a progress-shaped payload as a failure (no state mutation)', async () => {
+      seedPopulated();
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'progress',
+          characterId: 'char-1',
+          achievementId: 'collector',
+        })
+      );
+
+      await useAchievementStore.getState().unlock('char-1', 'collector');
+
+      const s = useAchievementStore.getState();
+      expect(s.error).toBeTruthy();
+      const collector = s.achievementsByCharacter['char-1'].catalog.find((a) => a.id === 'collector');
+      expect(collector?.unlocked).toBe(false);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Finding 6: stale sync completions must not overwrite fresher state.
+  // ---------------------------------------------------------------------------
+  describe('stale sync completion (per-character request version)', () => {
+    const deferred = <T,>() => {
+      let resolve!: (v: T) => void;
+      const promise = new Promise<T>((r) => {
+        resolve = r;
+      });
+      return { promise, resolve };
+    };
+    // Flush microtasks + a macrotask so a parked async action gets PAST its
+    // lazy `import('../services/mcpClient')` before the next one is fired. Two
+    // dynamic imports racing in the same tick can intermittently resolve to the
+    // un-mocked module under vitest, so we serialize past the import boundary.
+    const flush = () => new Promise((r) => setTimeout(r, 0));
+
+    it('drops an older sync that resolves AFTER a newer sync (newer state wins)', async () => {
+      // Sync A (older) is parked at its `list` await. Sync B (newer) then runs to
+      // completion, writing fresh state (unlocked:true / unlockedCount:1). Only
+      // afterwards does A's `list` resolve with STALE data (unlocked:false). A's
+      // terminal write must be DROPPED because the per-character request version
+      // moved on — the newer state has to win.
+      const aList = deferred<unknown>();
+      callTool.mockReturnValueOnce(aList.promise); // A.list — held open
+
+      const pA = useAchievementStore.getState().syncAchievements('char-1'); // older
+      await flush(); // A passes its import and parks at the list await
+
+      // Now queue B's responses and fire it; A's import already resolved so B's
+      // does not race it.
+      callTool
+        .mockResolvedValueOnce(
+          wrapResponse({
+            success: true,
+            actionType: 'list',
+            achievements: [
+              { id: 'first-blood', name: 'First Blood', description: '', category: 'combat', points: 10, unlocked: true },
+            ],
+          })
+        ) // B.list — fresh
+        .mockResolvedValueOnce(
+          wrapResponse({ success: true, actionType: 'get', characterId: 'char-1', totalCount: 1, unlockedCount: 1, totalPoints: 10 })
+        ) // B.get — fresh
+        .mockResolvedValueOnce(
+          wrapResponse({ success: true, actionType: 'get', characterId: 'char-1', totalCount: 1, unlockedCount: 0, totalPoints: 0 })
+        ); // A.get — stale (consumed after A.list resolves)
+
+      const pB = useAchievementStore.getState().syncAchievements('char-1'); // newer
+      await pB;
+      await flush();
+
+      // Sanity: the newer sync has landed.
+      let entry = useAchievementStore.getState().achievementsByCharacter['char-1'];
+      expect(entry.catalog[0].unlocked).toBe(true);
+      expect(entry.unlockedCount).toBe(1);
+
+      // Release the OLDER sync's list with stale (locked) data; it then fetches
+      // its get and reaches its terminal write — which must be dropped.
+      aList.resolve(
+        wrapResponse({
+          success: true,
+          actionType: 'list',
+          achievements: [
+            { id: 'first-blood', name: 'First Blood', description: '', category: 'combat', points: 10, unlocked: false },
+          ],
+        })
+      );
+      await pA;
+
+      // The newer state must still win — the stale older completion was dropped.
+      entry = useAchievementStore.getState().achievementsByCharacter['char-1'];
+      expect(entry.catalog[0].unlocked).toBe(true);
+      expect(entry.unlockedCount).toBe(1);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Finding 7: mutations reconcile to engine truth on edge cases.
+  // ---------------------------------------------------------------------------
+  describe('reconcile to engine truth (mutations)', () => {
+    function seedPopulated() {
+      useAchievementStore.setState({
+        achievementsByCharacter: {
+          'char-1': {
+            catalog: sampleCatalog(),
+            totalCount: 2,
+            unlockedCount: 1,
+            totalPoints: 10,
+            characterName: 'Aria',
+          } as any,
+        },
+      });
+    }
+
+    it('unlock of an achievement absent from the local cache triggers a reconcile sync', async () => {
+      seedPopulated();
+      // 1) unlock response (achievement not in local catalog)
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'unlock',
+          characterId: 'char-1',
+          achievementId: 'ghost', // not in sampleCatalog
+          points: 5,
+          alreadyUnlocked: false,
+        })
+      );
+      // 2) reconcile: list then get
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'list',
+          achievements: [
+            ...sampleCatalog(),
+            { id: 'ghost', name: 'Ghost', description: '', category: 'meta', points: 5, unlocked: true },
+          ],
+        })
+      );
+      callTool.mockResolvedValueOnce(
+        wrapResponse({ success: true, actionType: 'get', characterId: 'char-1', totalCount: 3, unlockedCount: 2, totalPoints: 15 })
+      );
+
+      await useAchievementStore.getState().unlock('char-1', 'ghost');
+
+      // A reconcile sync ran: list + get were called after the unlock.
+      const listCalls = callTool.mock.calls.filter(
+        (c) => c[0] === 'achievement_manage' && (c[1] as any).action === 'list'
+      );
+      expect(listCalls.length).toBe(1);
+      const entry = useAchievementStore.getState().achievementsByCharacter['char-1'];
+      expect(entry.catalog.find((a) => a.id === 'ghost')?.unlocked).toBe(true);
+      expect(entry.unlockedCount).toBe(2);
+    });
+
+    it('unlock that returns alreadyUnlocked:true for a locally-locked entry reconciles via sync', async () => {
+      seedPopulated();
+      // collector is locally locked, but the engine says it was ALREADY unlocked
+      // -> local state is stale, reconcile instead of a fast-path patch.
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'unlock',
+          characterId: 'char-1',
+          achievementId: 'collector',
+          points: 25,
+          alreadyUnlocked: true,
+        })
+      );
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'list',
+          achievements: sampleCatalog().map((a) =>
+            a.id === 'collector' ? { ...a, unlocked: true } : a
+          ),
+        })
+      );
+      callTool.mockResolvedValueOnce(
+        wrapResponse({ success: true, actionType: 'get', characterId: 'char-1', totalCount: 2, unlockedCount: 2, totalPoints: 35 })
+      );
+
+      await useAchievementStore.getState().unlock('char-1', 'collector');
+
+      const listCalls = callTool.mock.calls.filter(
+        (c) => c[0] === 'achievement_manage' && (c[1] as any).action === 'list'
+      );
+      expect(listCalls.length).toBe(1);
+      const entry = useAchievementStore.getState().achievementsByCharacter['char-1'];
+      expect(entry.catalog.find((a) => a.id === 'collector')?.unlocked).toBe(true);
+      expect(entry.unlockedCount).toBe(2);
+    });
+
+    it('revoke that returns revoked:false reconciles via sync instead of patching', async () => {
+      seedPopulated();
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'revoke',
+          characterId: 'char-1',
+          achievementId: 'first-blood',
+          revoked: false,
+        })
+      );
+      // reconcile list + get (engine still has it unlocked)
+      callTool.mockResolvedValueOnce(
+        wrapResponse({ success: true, actionType: 'list', achievements: sampleCatalog() })
+      );
+      callTool.mockResolvedValueOnce(
+        wrapResponse({ success: true, actionType: 'get', characterId: 'char-1', totalCount: 2, unlockedCount: 1, totalPoints: 10 })
+      );
+
+      await useAchievementStore.getState().revoke('char-1', 'first-blood');
+
+      const listCalls = callTool.mock.calls.filter(
+        (c) => c[0] === 'achievement_manage' && (c[1] as any).action === 'list'
+      );
+      expect(listCalls.length).toBe(1);
+      const entry = useAchievementStore.getState().achievementsByCharacter['char-1'];
+      // Engine still reports first-blood unlocked -> local state matches engine.
+      expect(entry.catalog.find((a) => a.id === 'first-blood')?.unlocked).toBe(true);
+      expect(entry.unlockedCount).toBe(1);
+    });
+
+    it('progress reporting justUnlocked:true on an already-unlocked local entry reconciles via sync', async () => {
+      // Seed with collector ALREADY unlocked locally.
+      useAchievementStore.setState({
+        achievementsByCharacter: {
+          'char-1': {
+            catalog: sampleCatalog().map((a) =>
+              a.id === 'collector' ? { ...a, unlocked: true, progress: 100 } : a
+            ),
+            totalCount: 2,
+            unlockedCount: 2,
+            totalPoints: 35,
+            characterName: 'Aria',
+          } as any,
+        },
+      });
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'progress',
+          characterId: 'char-1',
+          achievementId: 'collector',
+          progress: 100,
+          target: 100,
+          unlocked: true,
+          justUnlocked: true, // conflicts with the local already-unlocked entry
+        })
+      );
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'list',
+          achievements: sampleCatalog().map((a) =>
+            a.id === 'collector' ? { ...a, unlocked: true, progress: 100 } : a
+          ),
+        })
+      );
+      callTool.mockResolvedValueOnce(
+        wrapResponse({ success: true, actionType: 'get', characterId: 'char-1', totalCount: 2, unlockedCount: 2, totalPoints: 35 })
+      );
+
+      await useAchievementStore.getState().progress('char-1', 'collector');
+
+      const listCalls = callTool.mock.calls.filter(
+        (c) => c[0] === 'achievement_manage' && (c[1] as any).action === 'list'
+      );
+      expect(listCalls.length).toBe(1);
+      const entry = useAchievementStore.getState().achievementsByCharacter['char-1'];
+      // Must NOT double-count: still 2 unlocked / 35 points after reconcile.
+      expect(entry.unlockedCount).toBe(2);
+      expect(entry.totalPoints).toBe(35);
     });
   });
 
