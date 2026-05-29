@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ActiveTab = 'adventure' | 'combat' | 'character' | 'map' | 'journal' | 'skills' | 'chains' | 'settings';
+export type ActiveTab = 'adventure' | 'combat' | 'character' | 'map' | 'journal' | 'skills' | 'chains' | 'achievements' | 'settings';
 export type Theme = 'green' | 'amber';
 
 interface UIState {

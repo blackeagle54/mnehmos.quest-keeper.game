@@ -50,6 +50,7 @@ export const NavBar: React.FC = () => {
                 <NavItem tab="journal" icon="📓" label="Journal" />
                 <NavItem tab="skills" icon="✨" label="Skills" />
                 <NavItem tab="chains" icon="🔗" label="Chains" />
+                <NavItem tab="achievements" icon="🏆" label="Achievements" />
             </div>
 
             {/* Quick Commands Divider */}
