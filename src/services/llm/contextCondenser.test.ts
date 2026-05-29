@@ -21,6 +21,7 @@ import { describe, it, expect } from 'vitest';
 import {
   condenseHistory,
   heuristicStrategy,
+  RECAP_PREFIX,
   type CondenseOptions,
 } from './contextCondenser';
 import type { ChatMessage } from './types';
@@ -125,10 +126,12 @@ describe('condenseHistory — preservation invariants', () => {
     // Recap sits at index 1 (right after system[0]).
     const recap = result[1];
     expect(recap).toBeDefined();
-    expect(recap.content).toContain('[Earlier this session');
+    expect(recap.content).toContain(RECAP_PREFIX);
 
     // And there is EXACTLY one such recap in the whole result.
-    const recapCount = result.filter((m) => m.content.includes('[Earlier this session')).length;
+    const recapCount = result.filter(
+      (m) => typeof m.content === 'string' && m.content.includes(RECAP_PREFIX)
+    ).length;
     expect(recapCount).toBe(1);
   });
 
@@ -263,5 +266,48 @@ describe('heuristicStrategy', () => {
     expect(summary).toContain('the goblin falls');
     // The 5000-char verbose tool payload must NOT be carried verbatim.
     expect(summary).not.toContain('x'.repeat(5000));
+  });
+});
+
+describe('condenseHistory — robustness / edge cases', () => {
+  it('does not throw when a message has undefined content (a pure tool-call turn)', () => {
+    const history: ChatMessage[] = [
+      { role: 'system', content: 'You are the DM.' },
+      ...Array.from({ length: 12 }, (_, i): ChatMessage => ({
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content: longText(`turn${i}`),
+      })),
+      // assistant turn with NO prose — only a tool call, so content is undefined.
+      // JSON.stringify(undefined) === undefined (primitive), so token accounting
+      // must not blow up on it.
+      {
+        role: 'assistant',
+        content: undefined as unknown as string,
+        toolCalls: [{ id: 'x1', name: 'look', arguments: {} }],
+      },
+      { role: 'tool', content: 'ok', toolCallId: 'x1' },
+      { role: 'user', content: 'final message' },
+    ];
+
+    expect(() =>
+      condenseHistory(history, opts({ maxTokens: 400, recentTurnsToKeep: 2 }))
+    ).not.toThrow();
+  });
+
+  it('truncates an over-budget kept message so the result still fits maxTokens', () => {
+    const maxTokens = 200;
+    const history: ChatMessage[] = [
+      { role: 'system', content: 'DM' },
+      { role: 'user', content: longText('old-1') },
+      { role: 'assistant', content: longText('old-2') },
+      // The final (always-kept) message ALONE far exceeds the whole budget.
+      { role: 'user', content: 'x'.repeat(maxTokens * 4 * 3) },
+    ];
+
+    const result = condenseHistory(history, opts({ maxTokens, recentTurnsToKeep: 1 }));
+
+    expect(totalTokens(result)).toBeLessThanOrEqual(maxTokens);
+    // The final message is still present (kept), just hard-truncated as a last resort.
+    expect(result[result.length - 1].role).toBe('user');
   });
 });

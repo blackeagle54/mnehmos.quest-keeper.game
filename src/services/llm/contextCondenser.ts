@@ -45,10 +45,21 @@ export interface CondenseStrategy {
 /** Stable prefix that marks the synthetic recap message (asserted by tests). */
 export const RECAP_PREFIX = '[Earlier this session';
 
+/**
+ * Normalize a message's content to a string for measurement / digesting.
+ * NB: `JSON.stringify(undefined)` returns the primitive `undefined` (not a string),
+ * so null/undefined content MUST be guarded here or downstream `.length`/`.trim()`
+ * throws — e.g. an assistant turn that is a pure tool-call has no prose content.
+ */
+function contentToText(content: ChatMessage['content']): string {
+  if (typeof content === 'string') return content;
+  if (content == null) return '';
+  return JSON.stringify(content) ?? '';
+}
+
 /** Estimate tokens for a single message's content the way the trimmer accounts for it. */
 function messageTokens(msg: ChatMessage, estimateTokens: (t: string) => number): number {
-  const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-  return estimateTokens(content);
+  return estimateTokens(contentToText(msg.content));
 }
 
 /** Total estimated tokens for a list of messages. */
@@ -75,14 +86,14 @@ function digestMessage(msg: ChatMessage): string | null {
       .map((tc) => tc.name)
       .filter(Boolean)
       .join(', ');
-    const text = (msg.content || '').trim();
+    const text = contentToText(msg.content).trim();
     const action = names ? `(used: ${names})` : '';
     const line = [text, action].filter(Boolean).join(' ').trim();
     return line || null;
   }
 
   // Plain user / assistant / (in-conversation) system narrative.
-  const text = (typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)).trim();
+  const text = contentToText(msg.content).trim();
   if (!text) return null;
 
   // Cap a single turn so one verbose message can't swamp the digest. Kept short so
@@ -261,6 +272,32 @@ export function condenseHistory(
 
   for (const unit of keptUnits) {
     out.push(...unit.messages);
+  }
+
+  // Last-resort safeguard: a single KEPT message (e.g. the final turn, which is
+  // never evicted — invariant #9) can itself exceed the budget, so priority-info
+  // preservation alone can't guarantee the fit. Hard-truncate the largest
+  // STRING-content message until the whole result fits, mirroring the old
+  // truncator. Structured/tool content is left intact so tool pairing stays
+  // provider-valid. Bounded by a safety counter (each pass shrinks one message).
+  let safety = out.length + 1;
+  while (totalTokens(out, estimateTokens) > maxTokens && safety-- > 0) {
+    let idx = -1;
+    let largest = 0;
+    for (let k = 0; k < out.length; k++) {
+      if (out[k].role === 'system') continue;
+      if (typeof out[k].content !== 'string') continue;
+      const t = messageTokens(out[k], estimateTokens);
+      if (t > largest) {
+        largest = t;
+        idx = k;
+      }
+    }
+    if (idx < 0) break; // nothing safely sliceable (only system/structured left)
+    const overTokens = totalTokens(out, estimateTokens) - maxTokens;
+    const content = out[idx].content as string;
+    const newLen = Math.max(0, content.length - (overTokens * 4 + 16));
+    out[idx] = { ...out[idx], content: content.slice(0, newLen) + '…[truncated]' };
   }
 
   return out;
