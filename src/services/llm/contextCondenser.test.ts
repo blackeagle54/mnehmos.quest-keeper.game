@@ -270,6 +270,138 @@ describe('heuristicStrategy', () => {
   });
 });
 
+describe('heuristicStrategy — streamed tool-call shape (Fix 1)', () => {
+  // LLMService.streamMessage pushes assistant tool calls in the OpenAI wire shape
+  // `{ id, type:'function', function:{ name, arguments } }` (cast `as any`), NOT the
+  // typed ToolCall {id,name,arguments}. The id stays top-level (so pairing works) but
+  // the NAME lives at `tc.function.name`. digestMessage must read either shape, else
+  // streamed histories (the primary ChatInput path) drop every tool action.
+  it('reads the tool name from the streamed OpenAI shape (tc.function.name)', () => {
+    const evicted: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: '',
+        toolCalls: [
+          { id: 'c1', type: 'function', function: { name: 'roll_dice', arguments: '{}' } } as any,
+        ],
+      },
+    ];
+
+    const summary = heuristicStrategy.summarize(evicted);
+
+    expect(summary).toContain('roll_dice');
+  });
+
+  it('condenseHistory recap names a streamed tool action in the evictable range', () => {
+    const history: ChatMessage[] = [
+      { role: 'system', content: 'You are the DM.' },
+      ...Array.from({ length: 6 }, (_, i): ChatMessage => ({
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content: longText(`scene${i}`),
+      })),
+      // Streamed-shape tool call buried in the evictable middle.
+      {
+        role: 'assistant',
+        content: '',
+        toolCalls: [
+          { id: 'c1', type: 'function', function: { name: 'roll_dice', arguments: '{}' } } as any,
+        ],
+      },
+      { role: 'tool', content: 'ok', toolCallId: 'c1' },
+      ...Array.from({ length: 4 }, (_, i): ChatMessage => ({
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content: longText(`more${i}`),
+      })),
+      { role: 'user', content: 'recent question?' },
+      { role: 'assistant', content: 'recent answer.' },
+      { role: 'user', content: 'final message' },
+    ];
+
+    const result = condenseHistory(history, opts({ maxTokens: 500, recentTurnsToKeep: 3 }));
+
+    const recap = result.find(
+      (m) => typeof m.content === 'string' && m.content.includes(RECAP_PREFIX)
+    );
+    expect(recap?.content).toContain('roll_dice');
+  });
+});
+
+describe('condenseHistory — recap idempotency (Fix 2)', () => {
+  // Because trimHistory now runs before EVERY provider call, a synthetic recap created
+  // on turn N is itself evictable on a later turn. digestMessage must NOT relabel it as
+  // `Player: [Earlier ...]` nor re-wrap it in another RECAP_PREFIX (no nesting / drift).
+  it('absorbs a prior recap flatly: no nesting, no Player: label, single prefix', () => {
+    const priorRecap = heuristicStrategy.summarize([
+      { role: 'user', content: 'I open the ancient door.' },
+      { role: 'assistant', content: 'It groans open onto a vault of gold.' },
+    ]);
+    // Sanity: the fixture really is a recap message.
+    expect(priorRecap.startsWith(RECAP_PREFIX)).toBe(true);
+
+    const history: ChatMessage[] = [
+      { role: 'system', content: 'You are the DM.' },
+      // The prior recap sits at the front of the evictable range.
+      { role: 'user', content: priorRecap },
+      ...Array.from({ length: 8 }, (_, i): ChatMessage => ({
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content: longText(`turn${i}`),
+      })),
+      { role: 'user', content: 'recent question?' },
+      { role: 'assistant', content: 'recent answer.' },
+      { role: 'user', content: 'final message' },
+    ];
+
+    const result = condenseHistory(history, opts({ maxTokens: 600, recentTurnsToKeep: 3 }));
+
+    const recap = result[1].content as string;
+    // (a) still a recap
+    expect(recap.startsWith(RECAP_PREFIX)).toBe(true);
+    // (b) the prior recap was NOT relabelled as player prose
+    expect(recap).not.toContain('Player: [Earlier this session');
+    // (c) no nesting — the prefix appears at most once
+    const prefixCount = recap.split(RECAP_PREFIX).length - 1;
+    expect(prefixCount).toBe(1);
+  });
+});
+
+describe('condenseHistory — fixed recap headroom no longer over-evicts (Fix 3)', () => {
+  // The keepCount shrink loop must shrink ONLY when the protected tail ITSELF overflows
+  // maxTokens — not when tail + a fixed 32-token recap headroom overflows. A tail that
+  // fits with a small (<32-token) margin must keep ALL recent turns verbatim, with the
+  // recap merely truncated/dropped into the remaining budget.
+  it('keeps the full recent tail when it fits with a small (<32-token) margin', () => {
+    const recentTurnsToKeep = 4;
+    // Build a tail that fits within maxTokens with only a few tokens to spare.
+    const tail: ChatMessage[] = [
+      { role: 'user', content: 'recent-1 What do I see?' },
+      { role: 'assistant', content: 'recent-2 A dark corridor.' },
+      { role: 'user', content: 'recent-3 I advance.' },
+      { role: 'assistant', content: 'recent-4 final message here.' },
+    ];
+    const system: ChatMessage = { role: 'system', content: 'You are the DM.' };
+
+    // Size maxTokens so system + tail leaves a SMALL margin (< 32 tokens) but does fit.
+    const systemTok = messageTokens(system, estimateTokens);
+    const tailTok = tail.reduce((s, m) => s + messageTokens(m, estimateTokens), 0);
+    const maxTokens = systemTok + tailTok + 10; // 10-token margin (< 32)
+
+    const history: ChatMessage[] = [
+      system,
+      ...Array.from({ length: 8 }, (_, i): ChatMessage => ({
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content: longText(`evicted${i}`),
+      })),
+      ...tail,
+    ];
+
+    const result = condenseHistory(history, opts({ maxTokens, recentTurnsToKeep }));
+
+    // ALL recentTurnsToKeep recent messages must be present verbatim (none evicted).
+    const actualTail = result.slice(result.length - recentTurnsToKeep);
+    expect(actualTail).toEqual(tail);
+  });
+});
+
 describe('messageTokens — tool-call payload accounting', () => {
   // A pure assistant tool-use turn (empty prose, big toolCalls arguments) must NOT
   // count as ~0 tokens, otherwise the under-budget fast-path and tail budgeting

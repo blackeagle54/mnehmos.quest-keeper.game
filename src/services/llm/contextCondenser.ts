@@ -81,6 +81,24 @@ function totalTokens(history: ChatMessage[], estimateTokens: (t: string) => numb
  * length-capped so a single huge turn can't dominate the recap.
  */
 function digestMessage(msg: ChatMessage): string | null {
+  // IDEMPOTENCY (Fix 2): a prior synthetic recap is itself evictable now that
+  // trimHistory runs before EVERY provider call. Detect it FIRST — before any
+  // speaker-label path — and absorb its INNER digest text flatly (no `Player:`/`DM:`
+  // label, no nesting in another RECAP_PREFIX) so a long session can't compound
+  // `[Earlier this session ... [Earlier this session ...]]` drift turn after turn.
+  if (typeof msg.content === 'string' && msg.content.startsWith(RECAP_PREFIX)) {
+    // Extract the digest body between the prefix's `): ` and the trailing `]`.
+    const start = msg.content.indexOf('): ');
+    const end = msg.content.lastIndexOf(']');
+    if (start !== -1 && end !== -1 && end > start + 3) {
+      const inner = msg.content.slice(start + 3, end).trim();
+      return inner || null;
+    }
+    // Shape didn't match (e.g. a truncated recap) — return the raw content unlabelled
+    // so it's still absorbed flatly rather than relabelled as player prose.
+    return msg.content.trim() || null;
+  }
+
   // Tool results: collapse to a noise-free marker. The full payload was already
   // processed by the engine and lives in the DB — it has no narrative value here.
   if (msg.role === 'tool') {
@@ -90,8 +108,12 @@ function digestMessage(msg: ChatMessage): string | null {
   // Assistant tool-call messages: collapse to the tool names invoked (intent), not
   // the raw arguments. Keep any accompanying narrative text the assistant emitted.
   if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+    // Read the tool NAME from either shape (Fix 1): the typed ToolCall {name} OR the
+    // streamed OpenAI wire shape `{ id, type:'function', function:{ name, arguments } }`
+    // that LLMService.streamMessage pushes (cast `as any`). The streamed path is the
+    // primary one (ChatInput), so reading only `tc.name` would drop every tool action.
     const names = msg.toolCalls
-      .map((tc) => tc.name)
+      .map((tc) => tc.name ?? (tc as any).function?.name)
       .filter(Boolean)
       .join(', ');
     const text = contentToText(msg.content).trim();
@@ -238,19 +260,16 @@ export function condenseHistory(
   //    then truncated to whatever budget remains.
   const systemTokens = systemMsg ? messageTokens(systemMsg, estimateTokens) : 0;
 
-  // Reserve a little headroom so a non-empty recap can always be attached when there is
-  // evicted content; this keeps the recap useful rather than starved to nothing.
-  const RECAP_HEADROOM_TOKENS = 32;
-
   let keepCount = keptUnitCount; // trailing units kept verbatim
   const tailTokensFor = (count: number): number =>
     units.slice(units.length - count).reduce((s, u) => s + u.tokens, 0);
 
-  // Shrink the verbatim tail (never below 1 unit) until system + tail leaves headroom.
-  while (
-    keepCount > 1 &&
-    systemTokens + tailTokensFor(keepCount) + RECAP_HEADROOM_TOKENS > maxTokens
-  ) {
+  // Shrink the verbatim tail (never below 1 unit) ONLY when the tail ITSELF overflows
+  // (Fix 3). Older tail units move to the recap purely because the protected tail can't
+  // fit — never to reserve a fixed recap headroom. A tail that fits with a small margin
+  // keeps all recent turns verbatim; the recap is then truncated (or dropped) into the
+  // remaining budget by the estimator-aware truncateToTokenBudget below.
+  while (keepCount > 1 && systemTokens + tailTokensFor(keepCount) > maxTokens) {
     keepCount--;
   }
 
