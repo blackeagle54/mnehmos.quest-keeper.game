@@ -232,6 +232,23 @@ describe('skillStore', () => {
       const skills = useSkillStore.getState().skillsByCharacter['char-1'];
       expect(skills.magic).toEqual({ xp: 1154, level: 10 });
     });
+
+    it('sets error and does NOT corrupt state on a success:false payload', async () => {
+      const populated = freshSkills();
+      populated.magic = { xp: 1234, level: 12 };
+      useSkillStore.setState({ skillsByCharacter: { 'char-1': populated as any } });
+
+      callTool.mockResolvedValueOnce(
+        wrapSkillResponse({ success: false, actionType: 'set_level', characterId: 'char-1', skill: 'magic' })
+      );
+
+      await useSkillStore.getState().setLevel('char-1', 'magic', 10);
+
+      const s = useSkillStore.getState();
+      expect(s.error).toBeTruthy();
+      expect(s.isLoading).toBe(false);
+      expect(s.skillsByCharacter['char-1'].magic).toEqual({ xp: 1234, level: 12 });
+    });
   });
 
   describe('checkRequirement', () => {
@@ -259,6 +276,27 @@ describe('skillStore', () => {
       });
       expect(result?.met).toBe(false);
       expect(result?.shortfall).toBe(5);
+    });
+
+    it('sets error on a success:false payload', async () => {
+      callTool.mockResolvedValueOnce(
+        wrapSkillResponse({ success: false, actionType: 'check_requirement', characterId: 'char-1', skill: 'crafting' })
+      );
+
+      await useSkillStore.getState().checkRequirement('char-1', 'crafting', 10);
+
+      const s = useSkillStore.getState();
+      expect(s.error).toBeTruthy();
+      expect(s.isLoading).toBe(false);
+    });
+
+    it('sets error and returns null on an unparseable payload', async () => {
+      callTool.mockResolvedValueOnce({ content: [{ type: 'text', text: 'No embedded payload here.' }] });
+
+      const result = await useSkillStore.getState().checkRequirement('char-1', 'crafting', 10);
+
+      expect(result).toBeNull();
+      expect(useSkillStore.getState().error).toBeTruthy();
     });
   });
 
