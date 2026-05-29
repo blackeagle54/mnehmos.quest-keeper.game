@@ -94,6 +94,7 @@ describe('questChainStore', () => {
       chainsByCharacter: {},
       chainList: [],
       selectedChainId: null,
+      pending: 0,
       isLoading: false,
       error: null,
       lastResult: null,
@@ -183,15 +184,26 @@ describe('questChainStore', () => {
 
     it('resolves chain by questId when the id is not a known chainId', async () => {
       // loadChain accepts either a chainId or a source questId; callers that pass
-      // a quest id rely on the engine resolving its chainId. The store sends the
-      // raw identifier; we assert it round-trips into chainsByCharacter under the
-      // resolved chainId from the payload.
+      // a quest id rely on the engine resolving its chainId. We pass an actual
+      // quest id ('q-b') that is NOT the chainId, and have the engine respond
+      // with a payload whose chainId is 'storyline-1'. The store must key the
+      // graph under the engine-RESOLVED chainId, not the requested questId.
       callTool.mockResolvedValueOnce(wrapResponse(sampleChainPayload()));
 
-      await useQuestChainStore.getState().loadChain('storyline-1', 'char-1');
+      await useQuestChainStore.getState().loadChain('q-b', 'char-1');
+
+      // The store forwards the raw identifier to the engine as chainId/questId.
+      expect(callTool).toHaveBeenCalledWith('quest_manage', {
+        action: 'get_chain',
+        chainId: 'q-b',
+        characterId: 'char-1',
+      });
 
       const chains = useQuestChainStore.getState().chainsByCharacter['char-1'];
+      // Resolved under the payload's chainId, NOT the requested questId.
       expect(Object.keys(chains)).toContain('storyline-1');
+      expect(Object.keys(chains)).not.toContain('q-b');
+      expect(chains['storyline-1'].quests).toHaveLength(3);
     });
 
     it('sets error and does NOT clobber a populated chain map on a null-parse payload', async () => {
@@ -285,8 +297,10 @@ describe('questChainStore', () => {
         chainsByCharacter: { 'char-1': { 'storyline-1': seeded as any } },
       });
 
+      // A genuine success:false payload (NO error field) — the distinct failure
+      // mode the failure guard must catch independently of the error envelope.
       callTool.mockResolvedValueOnce(
-        wrapResponse({ error: true, message: 'Branch already chosen' })
+        wrapResponse({ success: false, actionType: 'select_branch', message: 'Branch already chosen' })
       );
 
       await useQuestChainStore.getState().selectBranch('q-b', 'evil', 'char-1');
@@ -296,6 +310,146 @@ describe('questChainStore', () => {
       expect(s.isLoading).toBe(false);
       expect(s.chainsByCharacter['char-1']['storyline-1'].quests).toHaveLength(3);
       expect(s.lastResult).toBeNull();
+    });
+
+    it('clears a stale lastResult when a later selectBranch fails (error envelope)', async () => {
+      // First branch succeeds and populates lastResult.chosenQuestId.
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'select_branch',
+          characterId: 'char-1',
+          questId: 'q-b',
+          chainId: 'storyline-1',
+          choiceId: 'good',
+          chosenQuestId: 'q-c',
+        })
+      );
+      await useQuestChainStore.getState().selectBranch('q-b', 'good', 'char-1');
+      expect(useQuestChainStore.getState().lastResult?.chosenQuestId).toBe('q-c');
+
+      // A subsequent failing branch must NOT leave the stale chosenQuestId
+      // readable — lastResult is reset to null on failure.
+      callTool.mockResolvedValueOnce(
+        wrapResponse({ error: true, message: 'Branch already chosen' })
+      );
+      await useQuestChainStore.getState().selectBranch('q-b', 'evil', 'char-1');
+
+      const s = useQuestChainStore.getState();
+      expect(s.error).toBe('Branch already chosen');
+      expect(s.lastResult).toBeNull();
+    });
+  });
+
+  describe('payload shape validation (success:true but drifted)', () => {
+    it('loadChain treats a success:true payload WITHOUT a quests array as a failure', async () => {
+      // Seed a populated chain so we can assert it is NOT clobbered.
+      const seeded = sampleChainPayload();
+      useQuestChainStore.setState({
+        chainsByCharacter: { 'char-1': { 'storyline-1': seeded as any } },
+      });
+
+      // success:true but `quests` is missing (tool drift / partial write).
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'get_chain',
+          chainId: 'storyline-1',
+          characterId: 'char-1',
+          chainChoices: {},
+        })
+      );
+
+      await useQuestChainStore.getState().loadChain('storyline-1', 'char-1');
+
+      const s = useQuestChainStore.getState();
+      expect(s.error).toBeTruthy();
+      expect(s.isLoading).toBe(false);
+      // The previously-populated chain must NOT be replaced by an empty quests list.
+      expect(s.chainsByCharacter['char-1']['storyline-1'].quests).toHaveLength(3);
+    });
+
+    it('loadChain treats a non-array quests field as a failure', async () => {
+      const seeded = sampleChainPayload();
+      useQuestChainStore.setState({
+        chainsByCharacter: { 'char-1': { 'storyline-1': seeded as any } },
+      });
+
+      callTool.mockResolvedValueOnce(
+        wrapResponse({ success: true, actionType: 'get_chain', chainId: 'storyline-1', quests: 'nope' })
+      );
+
+      await useQuestChainStore.getState().loadChain('storyline-1', 'char-1');
+
+      const s = useQuestChainStore.getState();
+      expect(s.error).toBeTruthy();
+      expect(s.chainsByCharacter['char-1']['storyline-1'].quests).toHaveLength(3);
+    });
+
+    it('listChains treats a success:true payload WITHOUT a chains array as a failure', async () => {
+      // Seed a populated list so we can assert it is NOT clobbered with [].
+      useQuestChainStore.setState({
+        chainList: [{ chainId: 'storyline-1', questCount: 3, completedCount: 1 }],
+      });
+
+      callTool.mockResolvedValueOnce(
+        wrapResponse({ success: true, actionType: 'list_chains', count: 0 })
+      );
+
+      await useQuestChainStore.getState().listChains();
+
+      const s = useQuestChainStore.getState();
+      expect(s.error).toBeTruthy();
+      expect(s.isLoading).toBe(false);
+      expect(s.chainList).toEqual([{ chainId: 'storyline-1', questCount: 3, completedCount: 1 }]);
+    });
+  });
+
+  describe('in-flight counter (isLoading derived from pending)', () => {
+    it('keeps isLoading true until BOTH overlapping loads resolve', async () => {
+      // Two manually-controlled deferred responses so we can interleave them.
+      const deferred = <T,>() => {
+        let resolve!: (v: T) => void;
+        const promise = new Promise<T>((r) => {
+          resolve = r;
+        });
+        return { promise, resolve };
+      };
+
+      const first = deferred<unknown>();
+      const second = deferred<unknown>();
+      callTool.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+
+      // Fire both loads WITHOUT awaiting — they overlap.
+      const p1 = useQuestChainStore.getState().loadChain('storyline-1', 'char-1');
+      const p2 = useQuestChainStore.getState().loadChain('storyline-2', 'char-1');
+
+      // Both in flight: pending=2, isLoading=true.
+      expect(useQuestChainStore.getState().pending).toBe(2);
+      expect(useQuestChainStore.getState().isLoading).toBe(true);
+
+      // Resolve the FIRST request; the second is still in flight.
+      first.resolve(wrapResponse({ ...sampleChainPayload(), chainId: 'storyline-1' }));
+      await p1;
+
+      // A naive per-action reset would flip isLoading=false here — the counter
+      // must keep it true because one request is still pending.
+      expect(useQuestChainStore.getState().pending).toBe(1);
+      expect(useQuestChainStore.getState().isLoading).toBe(true);
+
+      // Resolve the SECOND request; now everything has settled.
+      second.resolve(wrapResponse({ ...sampleChainPayload(), chainId: 'storyline-2' }));
+      await p2;
+
+      expect(useQuestChainStore.getState().pending).toBe(0);
+      expect(useQuestChainStore.getState().isLoading).toBe(false);
+    });
+
+    it('never drives pending below zero', async () => {
+      callTool.mockResolvedValue(wrapResponse(sampleChainPayload()));
+      await useQuestChainStore.getState().loadChain('storyline-1', 'char-1');
+      expect(useQuestChainStore.getState().pending).toBe(0);
+      expect(useQuestChainStore.getState().isLoading).toBe(false);
     });
   });
 

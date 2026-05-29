@@ -150,4 +150,39 @@ describe('QuestChainView', () => {
     chainStoreState = { ...chainStoreState, isLoading: true, chainsByCharacter: {} };
     expect(() => render(<QuestChainView />)).not.toThrow();
   });
+
+  it('shows "Requires:" gating text ONLY for locked quests', () => {
+    const graph = sampleGraph() as any;
+    // Locked node with a skill gate -> must show Requires.
+    graph.quests[2].skillRequirements = [{ skill: 'Lockpicking', level: 5 }];
+    // Available (NOT locked) node with a skill gate -> must NOT show Requires.
+    graph.quests[0].unlockState = 'available';
+    graph.quests[0].skillRequirements = [{ skill: 'Diplomacy', level: 3 }];
+    chainStoreState.chainsByCharacter = { 'char-1': { 'storyline-1': graph } };
+
+    render(<QuestChainView />);
+
+    // The locked quest surfaces its gate.
+    expect(screen.getByText(/Lockpicking Lv5/i)).toBeInTheDocument();
+    // The non-locked quest does NOT, so its (now-moot) requirement is hidden.
+    expect(screen.queryByText(/Diplomacy Lv3/i)).not.toBeInTheDocument();
+  });
+
+  it('renders chainId-less graphs with unique keys (no key collision)', () => {
+    // Two graphs without a chainId would have collided on the old shared
+    // 'singleton' key; with the index/quest-id fallback they render distinctly.
+    const g1 = sampleGraph();
+    const g2 = sampleGraph();
+    delete (g1 as any).chainId;
+    delete (g2 as any).chainId;
+    g2.quests = g2.quests.map((q) => ({ ...q, id: `${q.id}-2`, name: `${q.name} II` }));
+    chainStoreState.chainsByCharacter = {
+      'char-1': { 'graph-1': g1, 'graph-2': g2 },
+    };
+
+    const { container } = render(<QuestChainView />);
+    expect(container.querySelectorAll('[data-testid="chain-section"]')).toHaveLength(2);
+    expect(screen.getByText('The Beginning')).toBeInTheDocument();
+    expect(screen.getByText('The Beginning II')).toBeInTheDocument();
+  });
 });

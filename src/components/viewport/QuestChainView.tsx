@@ -78,9 +78,10 @@ const ChainQuestNodeCard: React.FC<ChainQuestNodeProps> = ({
         </span>
       </div>
 
-      {/* Skill / prerequisite gates surfaced for locked nodes so the player
-          understands why a quest is gated. */}
-      {node.skillRequirements.length > 0 && (
+      {/* Skill / prerequisite gates surfaced ONLY for locked nodes so the player
+          understands why a quest is gated. Once a quest is available/active/
+          completed the gate is moot, so we don't show stale "Requires:" text. */}
+      {dimmed && node.skillRequirements.length > 0 && (
         <div className="text-xs text-terminal-green/50 mb-1">
           Requires:{' '}
           {node.skillRequirements
@@ -209,8 +210,11 @@ export const QuestChainView: React.FC = () => {
       )}
 
       <div className="space-y-8">
-        {graphs.map((graph) => {
-          const key = graph.chainId ?? 'singleton';
+        {graphs.map((graph, index) => {
+          // Multiple chainId-less graphs must not collide on a shared key; fall
+          // back to the first quest id, then the index, so each section is
+          // stable and unique.
+          const key = graph.chainId ?? graph.quests?.[0]?.id ?? `chain-${index}`;
           // A branch point is "reachable" once its source quest is completed by
           // this character (mirrors the engine's select_branch precondition).
           return (

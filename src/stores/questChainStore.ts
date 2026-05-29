@@ -91,6 +91,11 @@ interface QuestChainState {
   // UI preference (persisted): which chain the user last focused.
   selectedChainId: string | null;
 
+  // Number of in-flight chain requests. isLoading is DERIVED from this so
+  // overlapping requests don't desync (a fast completion can't hide a slower
+  // request that's still pending). Keep the public isLoading boolean for
+  // consumers (components select it directly).
+  pending: number;
   isLoading: boolean;
   error: string | null;
 
@@ -154,6 +159,27 @@ function chainPayloadFailure(
   return null;
 }
 
+/**
+ * Validate the action-specific shape of a non-failure payload BEFORE mutating
+ * state. Even a `success:true` payload can drift (tool change, partial write)
+ * and arrive without the array we key our state off of. Defaulting a missing
+ * `quests`/`chains` to `[]` would silently clobber a valid, populated map; we
+ * treat a shape mismatch as a failure instead.
+ *
+ *   - get_chain   requires Array.isArray(data.quests)
+ *   - list_chains requires Array.isArray(data.chains)
+ *
+ * Returns an error string on mismatch, else null.
+ */
+function chainShapeFailure(
+  data: QuestChainResult | null | undefined,
+  expect: 'quests' | 'chains',
+  fallback: string
+): string | null {
+  if (!data || !Array.isArray(data[expect])) return fallback;
+  return null;
+}
+
 /** Coerce an unknown thrown value (callTool rejects with the JSON-RPC error). */
 function toErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err) {
@@ -170,11 +196,25 @@ function toErrorMessage(err: unknown, fallback: string): string {
 
 export const useQuestChainStore = create<QuestChainState>()(
   persist(
-    (set, get) => ({
+    (set, get) => {
+      // In-flight request accounting. isLoading is derived from `pending > 0`
+      // so overlapping loads (e.g. loadChain fired per-chain in a loop) keep
+      // isLoading true until ALL of them resolve, rather than the first
+      // completion flipping it false while others are still running.
+      const beginRequest = () =>
+        set((state) => ({ pending: state.pending + 1, isLoading: true, error: null }));
+      const endRequest = () =>
+        set((state) => {
+          const pending = Math.max(0, state.pending - 1);
+          return { pending, isLoading: pending > 0 };
+        });
+
+      return {
       chainsByCharacter: {},
       chainList: [],
       lastResult: null,
       selectedChainId: null,
+      pending: 0,
       isLoading: false,
       error: null,
 
@@ -189,7 +229,7 @@ export const useQuestChainStore = create<QuestChainState>()(
       },
 
       listChains: async (worldId) => {
-        set({ isLoading: true, error: null });
+        beginRequest();
         try {
           const { mcpManager } = await import('../services/mcpClient');
           const args: { action: 'list_chains'; worldId?: string } = { action: 'list_chains' };
@@ -205,19 +245,27 @@ export const useQuestChainStore = create<QuestChainState>()(
             return;
           }
 
-          set({ chainList: data?.chains ?? [], lastResult: data });
+          // Even on success:true, require the expected array shape. A drifted
+          // payload without `chains` must NOT clobber a valid list with [].
+          const shapeFailure = chainShapeFailure(data, 'chains', 'Malformed chains payload');
+          if (shapeFailure) {
+            set({ error: shapeFailure });
+            return;
+          }
+
+          set({ chainList: data!.chains!, lastResult: data });
         } catch (err) {
           // callTool REJECTS on a JSON-RPC error — must be caught here, never
           // allowed to bubble into a React render.
           set({ error: toErrorMessage(err, 'Failed to load chains') });
         } finally {
-          set({ isLoading: false });
+          endRequest();
         }
       },
 
       loadChain: async (chainOrQuestId, characterId) => {
         if (!chainOrQuestId || !characterId) return;
-        set({ isLoading: true, error: null });
+        beginRequest();
         try {
           const { mcpManager } = await import('../services/mcpClient');
           // get_chain resolves by chainId; the engine also resolves a source
@@ -238,14 +286,23 @@ export const useQuestChainStore = create<QuestChainState>()(
             return;
           }
 
+          // Even on success:true, require quests to be an array before keying
+          // state off it. A drifted payload must NOT clobber a populated chain
+          // map with an empty quests list.
+          const shapeFailure = chainShapeFailure(data, 'quests', 'Malformed chain payload');
+          if (shapeFailure) {
+            set({ error: shapeFailure });
+            return;
+          }
+
           // Key by the engine-resolved chainId (falls back to the requested id
           // so a singleton/unnamed chain still slots in deterministically).
-          const resolvedId = data?.chainId ?? chainOrQuestId;
+          const resolvedId = data!.chainId ?? chainOrQuestId;
           const graph: ChainGraph = {
-            chainId: data?.chainId,
-            characterId: data?.characterId ?? characterId,
-            chainChoices: data?.chainChoices ?? {},
-            quests: data?.quests ?? [],
+            chainId: data!.chainId,
+            characterId: data!.characterId ?? characterId,
+            chainChoices: data!.chainChoices ?? {},
+            quests: data!.quests!,
           };
 
           set((state) => ({
@@ -261,13 +318,13 @@ export const useQuestChainStore = create<QuestChainState>()(
         } catch (err) {
           set({ error: toErrorMessage(err, 'Failed to load chain') });
         } finally {
-          set({ isLoading: false });
+          endRequest();
         }
       },
 
       selectBranch: async (questId, choiceId, characterId) => {
         if (!questId || !choiceId || !characterId) return null;
-        set({ isLoading: true, error: null });
+        beginRequest();
         try {
           const { mcpManager } = await import('../services/mcpClient');
           // NOTE: select_branch keys the decision on the SOURCE (branching)
@@ -282,20 +339,22 @@ export const useQuestChainStore = create<QuestChainState>()(
           const data = parseChainResponse(result);
 
           // Treat a null-parse / error-envelope / success:false payload as a
-          // failure BEFORE touching state — never set lastResult to bad data.
+          // failure BEFORE touching state. Also CLEAR lastResult so consumers
+          // can't read a stale prior chosenQuestId from a successful earlier
+          // branch.
           const failure = chainPayloadFailure(data, 'Failed to select branch');
           if (failure) {
-            set({ error: failure });
+            set({ error: failure, lastResult: null });
             return data ?? null;
           }
 
           set({ lastResult: data });
           return data;
         } catch (err) {
-          set({ error: toErrorMessage(err, 'Failed to select branch') });
+          set({ error: toErrorMessage(err, 'Failed to select branch'), lastResult: null });
           return null;
         } finally {
-          set({ isLoading: false });
+          endRequest();
         }
       },
 
@@ -303,7 +362,8 @@ export const useQuestChainStore = create<QuestChainState>()(
         if (!characterId) return null;
         return get().chainsByCharacter[characterId] ?? null;
       },
-    }),
+      };
+    },
     {
       name: 'quest-keeper-quest-chain-store',
       // Persist ONLY UI prefs/ids — never the server-derived chain data (which
