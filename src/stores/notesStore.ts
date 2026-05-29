@@ -126,10 +126,19 @@ export const useNotesStore = create<NotesState>()(
       },
 
       importNotes: (notes) => {
-        set((state) => ({
-          notes: [...notes, ...state.notes]
-        }));
-        console.log('[NotesStore] Imported', notes.length, 'notes');
+        // Dedup by id. Loading a campaign save re-imports its notes, and the
+        // player may re-load the same .qksave more than once — a naive
+        // `[...notes, ...state.notes]` prepend would clone every note on each
+        // load. Build an id->note map (existing first, incoming last) so an
+        // incoming note REPLACES the existing row with the same id, duplicate
+        // ids WITHIN the payload collapse to one, and re-importing is idempotent.
+        set((state) => {
+          const byId = new Map<string, Note>();
+          for (const note of state.notes) byId.set(note.id, note);
+          for (const note of notes) byId.set(note.id, note);
+          return { notes: Array.from(byId.values()) };
+        });
+        console.log('[NotesStore] Imported', notes.length, 'notes (deduped by id)');
       },
 
       clearAllNotes: () => {
