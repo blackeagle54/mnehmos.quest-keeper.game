@@ -326,7 +326,7 @@ The unified `rpg-mcp-server` binary is bundled in `src-tauri/binaries/`. It prov
 
 ## 🎯 Development Status
 
-**Overall Progress: ~75% Complete** | Phases 1-2 ✅ | Phase 4 🔧 | Phases 3, 5-6 ⬜
+**Overall Progress: ~78% Complete** | Phases 1-4 ✅ | Phase 5 🔧 | Phase 6 ⬜
 
 ### ✅ Phase 1: Core Systems (Complete)
 
@@ -346,7 +346,7 @@ The unified `rpg-mcp-server` binary is bundled in `src-tauri/binaries/`. It prov
 - Region boundaries and capital markers
 - Interactive POI detail panels
 
-### 🔧 Phase 4: Enhanced Combat (80% Complete)
+### ✅ Phase 4: Enhanced Combat (Complete)
 
 - ✅ 3D React Three Fiber battlemap
 - ✅ Grid system with coordinate labels
@@ -358,8 +358,8 @@ The unified `rpg-mcp-server` binary is bundled in `src-tauri/binaries/`. It prov
 - ✅ Quick action bar with common actions
 - ✅ Rest panel for short/long rests
 - ✅ Loot panel for encounter rewards
-- ⬜ Click-to-move token interaction
-- ⬜ Combat log panel
+- ✅ Click-to-move token interaction
+- ✅ Combat log panel
 
 ### 🔧 Phase 5: Session Management (70% Complete)
 
@@ -370,12 +370,12 @@ The unified `rpg-mcp-server` binary is bundled in `src-tauri/binaries/`. It prov
 - ⬜ Context condensing for very long sessions
 - ⬜ Export to Markdown/PDF
 
-### ⬜ Phase 3: Progression Systems (Not Started)
+### ✅ Phase 3: Progression Systems (Complete)
 
-- Skill system with OSRS-style XP curves
-- Quest chains and prerequisites
-- Achievement tracking
-- Faction reputation
+- ✅ Skill system with OSRS-style XP curves (`skill_manage`)
+- ✅ Quest chains and branching prerequisites (`quest_manage`)
+- ✅ Achievement tracking (`achievement_manage`)
+- ✅ Faction reputation with standing tiers (`reputation_manage`)
 
 ### ⬜ Phase 6: Workflow Automation (Not Started)
 
