@@ -38,7 +38,10 @@ const GAME_STATE_TOOLS = new Set([
     'assign_quest',
     'complete_quest',
     'update_objective',
-    'skill_manage'
+    'skill_manage',
+    // quest_manage chain mutations (set_chain / select_branch) change quest
+    // unlock state, so a resync is needed after the LLM calls it.
+    'quest_manage'
 ]);
 
 class LLMService {
