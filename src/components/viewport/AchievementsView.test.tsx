@@ -186,4 +186,87 @@ describe('AchievementsView', () => {
     };
     expect(() => render(<AchievementsView />)).not.toThrow();
   });
+
+  // ---------------------------------------------------------------------------
+  // Finding 1: a hidden + locked (masked) achievement must NOT leak its progress
+  // — even when it carries a target — via the progress bar / numbers.
+  // ---------------------------------------------------------------------------
+  it('does NOT render a progress bar or numbers for a hidden+locked achievement that has a target', () => {
+    achievementStoreState.achievementsByCharacter = {
+      'char-1': {
+        catalog: [
+          {
+            id: 'secret-incremental',
+            name: 'Secret Hoarder',
+            description: 'Hidden incremental.',
+            category: 'secret',
+            points: 100,
+            target: 50,
+            progress: 30, // would leak "30 / 50" if not masked
+            hidden: true,
+            unlocked: false,
+          },
+        ],
+        totalCount: 1,
+        unlockedCount: 0,
+        totalPoints: 0,
+        characterName: 'Aria',
+      },
+    };
+
+    render(<AchievementsView />);
+
+    // No progress bar element and no progress numbers for the masked card.
+    expect(screen.queryByTestId('achievement-progress')).not.toBeInTheDocument();
+    expect(screen.queryByText(/30\s*\/\s*50/)).not.toBeInTheDocument();
+    // It still renders as a masked mystery card.
+    expect(screen.getByText('???')).toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Finding 2: a persisted selectedCategory that no longer exists in the catalog
+  // must NOT leave a silent blank grid — show a category-empty message instead,
+  // distinct from the catalog-empty message.
+  // ---------------------------------------------------------------------------
+  it('falls back to showing all achievements (no blank grid) when the persisted filter is stale', () => {
+    // The catalog has categories combat/exploration/secret, but a stale persisted
+    // filter points at a category that no longer exists in this catalog. The view
+    // must NOT silently render a blank grid — the stale filter resolves to "all".
+    achievementStoreState.selectedCategory = 'deprecated-category';
+
+    render(<AchievementsView />);
+
+    // Full catalog renders rather than an unexplained blank grid.
+    expect(screen.getAllByTestId('achievement-card')).toHaveLength(3);
+    expect(screen.getByText('First Blood')).toBeInTheDocument();
+    expect(screen.getByText('Collector')).toBeInTheDocument();
+    // Neither empty-state message shows, because cards are visible.
+    expect(screen.queryByText(/No achievements defined yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No achievements in this category/i)).not.toBeInTheDocument();
+    // The "All" control reflects the effective (resolved) filter being active.
+    expect(screen.getByTestId('achievement-filter-all').className).toMatch(/bg-terminal-green/);
+  });
+
+  it('shows the catalog-empty message (not the category message) when the catalog is genuinely empty', () => {
+    achievementStoreState.achievementsByCharacter = {
+      'char-1': { catalog: [], totalCount: 0, unlockedCount: 0, totalPoints: 0, characterName: 'Aria' },
+    };
+
+    render(<AchievementsView />);
+
+    expect(screen.getByText(/No achievements defined yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No achievements in this category/i)).not.toBeInTheDocument();
+  });
+
+  it('applies a valid (non-stale) category filter and renders only its cards', () => {
+    achievementStoreState.selectedCategory = 'exploration';
+    render(<AchievementsView />);
+    // Only the exploration achievement (Collector) is visible.
+    expect(screen.getByText('Collector')).toBeInTheDocument();
+    expect(screen.queryByText('First Blood')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('achievement-card')).toHaveLength(1);
+    // Neither empty-state message shows.
+    expect(screen.queryByText(/No achievements defined yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No achievements in this category/i)).not.toBeInTheDocument();
+  });
 });

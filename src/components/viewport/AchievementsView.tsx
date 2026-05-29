@@ -19,9 +19,14 @@ const AchievementCard: React.FC<AchievementCardProps> = ({ achievement }) => {
   const masked = achievement.hidden === true && !unlocked;
 
   // Incremental achievements expose a target; show a progress bar for those that
-  // are still locked so the player can see how close they are.
+  // are still locked so the player can see how close they are. A masked
+  // (hidden + still-locked) achievement must NOT leak its progress/target — the
+  // whole point of hiding it — so it never gets a bar.
   const hasProgress =
-    typeof achievement.target === 'number' && achievement.target > 0 && !unlocked;
+    !masked &&
+    typeof achievement.target === 'number' &&
+    achievement.target > 0 &&
+    !unlocked;
   const progress = achievement.progress ?? 0;
   const target = achievement.target ?? 0;
   const pct =
@@ -130,8 +135,15 @@ export const AchievementsView: React.FC = () => {
     return Array.from(set).sort();
   }, [catalog]);
 
-  const visible = selectedCategory
-    ? catalog.filter((a) => a.category === selectedCategory)
+  // A persisted selectedCategory can outlive the catalog it was chosen from
+  // (different character / world, or the category no longer has entries). Filter
+  // by it ONLY when it still exists in the current catalog; otherwise treat it
+  // as "all" so a stale filter doesn't silently empty the grid.
+  const effectiveCategory =
+    selectedCategory && categories.includes(selectedCategory) ? selectedCategory : null;
+
+  const visible = effectiveCategory
+    ? catalog.filter((a) => a.category === effectiveCategory)
     : catalog;
 
   if (!characterId) {
@@ -194,7 +206,9 @@ export const AchievementsView: React.FC = () => {
             data-testid="achievement-filter-all"
             onClick={() => setSelectedCategory(null)}
             className={`text-xs px-3 py-1 rounded border transition-colors ${
-              selectedCategory === null
+              // Highlight "All" when no EFFECTIVE filter is active, so a stale
+              // selectedCategory (resolved to null) doesn't leave nothing lit.
+              effectiveCategory === null
                 ? 'bg-terminal-green text-terminal-black border-terminal-green'
                 : 'border-terminal-green/40 text-terminal-green/70 hover:bg-terminal-green/10'
             }`}
@@ -207,7 +221,7 @@ export const AchievementsView: React.FC = () => {
               data-testid={`achievement-filter-${cat}`}
               onClick={() => setSelectedCategory(cat)}
               className={`text-xs px-3 py-1 rounded border uppercase tracking-wider transition-colors ${
-                selectedCategory === cat
+                effectiveCategory === cat
                   ? 'bg-terminal-green text-terminal-black border-terminal-green'
                   : 'border-terminal-green/40 text-terminal-green/70 hover:bg-terminal-green/10'
               }`}
@@ -218,8 +232,16 @@ export const AchievementsView: React.FC = () => {
         </div>
       )}
 
-      {!isLoading && catalog.length === 0 && !error && (
-        <div className="text-terminal-green/60">No achievements defined yet.</div>
+      {/* Empty-state: render whenever nothing is visible (not only when the
+          catalog is empty), distinguishing a genuinely empty catalog from a
+          filter that matched nothing — otherwise a stale/empty filter leaves an
+          unexplained blank grid. */}
+      {!isLoading && visible.length === 0 && !error && (
+        <div className="text-terminal-green/60">
+          {catalog.length === 0
+            ? 'No achievements defined yet.'
+            : 'No achievements in this category.'}
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
