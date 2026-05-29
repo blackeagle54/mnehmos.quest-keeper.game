@@ -3,7 +3,7 @@ import { useChatStore } from '../../stores/chatStore';
 import { mcpManager } from '../../services/mcpClient';
 import { useGameStateStore } from '../../stores/gameStateStore';
 import { useCombatStore } from '../../stores/combatStore';
-import { useUIStore, ActiveTab } from '../../stores/uiStore';
+import { useUIStore, ActiveTab, ALL_TABS } from '../../stores/uiStore';
 import { setPlaytestMode, isPlaytestModeEnabled } from '../../services/llm/contextBuilder';
 
 // Slash command result interface
@@ -946,7 +946,9 @@ export const ChatInput: React.FC = () => {
       }
   
       case 'tab': {
-        const validTabs: ActiveTab[] = ['adventure', 'combat', 'character', 'map', 'journal', 'settings'];
+        // Derived from the single ALL_TABS source so the `/tab` whitelist can
+        // never drift behind newly-added tabs (skills/chains/achievements/reputation).
+        const validTabs: readonly ActiveTab[] = ALL_TABS;
         const tab = args.trim().toLowerCase() as ActiveTab;
         if (!validTabs.includes(tab)) return { content: `Valid tabs: ${validTabs.join(', ')}`, type: 'error' };
         uiStore.setActiveTab(tab);

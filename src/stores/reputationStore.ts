@@ -240,9 +240,14 @@ function reputationPayloadFailure(
   fallback: string,
   expectedAction?: ReputationAction
 ): string | null {
-  if (data == null) return fallback;
-  if (data.error) return data.message || fallback;
-  if (data.success === false) return data.message || fallback;
+  // Guarantee a NON-EMPTY failure string so callers that test truthiness
+  // (`if (!reputationPayloadFailure(...))`) can never mistake a failure for
+  // success. An empty fallback previously made a success:false payload return
+  // '' (falsy), which let failed-get fields leak into state.
+  const fb = fallback || 'Invalid reputation payload';
+  if (data == null) return fb;
+  if (data.error) return data.message || fb;
+  if (data.success === false) return data.message || fb;
   if (expectedAction) {
     // Reject a wrong-action payload (e.g. a list_factions call answered with a
     // get shape) — trusting it would clobber/patch from the wrong data.

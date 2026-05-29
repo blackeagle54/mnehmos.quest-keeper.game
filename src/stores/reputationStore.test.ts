@@ -91,7 +91,10 @@ describe('reputationStore', () => {
       error: null,
       lastResult: null,
     });
-    vi.clearAllMocks();
+    // mockReset (not clearAllMocks) so a prior test's mockResolvedValue
+    // implementation can't leak into the next test — clearAllMocks only wipes
+    // call history, leaving implementations intact.
+    callTool.mockReset();
   });
 
   // ---------------------------------------------------------------------------
@@ -160,14 +163,26 @@ describe('reputationStore', () => {
         .mockResolvedValueOnce(
           wrapResponse({ success: true, actionType: 'list_factions', factions: sampleFactions() })
         )
-        .mockResolvedValueOnce(wrapResponse({ success: false, actionType: 'get', characterId: 'char-1' }));
+        .mockResolvedValueOnce(
+          wrapResponse({
+            success: false,
+            actionType: 'get',
+            characterId: 'char-1',
+            // These fields must NOT be applied from a failed payload.
+            factionCount: 999,
+            characterName: 'SHOULD_NOT_APPLY',
+          })
+        );
 
       await useReputationStore.getState().syncReputation('char-1');
 
       const entry = useReputationStore.getState().reputationByCharacter['char-1'];
       expect(entry.factions).toHaveLength(2);
-      // factionCount derived from the list as a fallback when get fails.
+      // factionCount derived from the list as a fallback when get fails — NOT the
+      // failed payload's 999.
       expect(entry.factionCount).toBe(2);
+      // A failed get must not partially apply its fields.
+      expect(entry.characterName).toBeUndefined();
     });
 
     it('defaults a faction with no per-character entry to Neutral / 0', async () => {
