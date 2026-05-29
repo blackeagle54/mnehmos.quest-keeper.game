@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 
-export type ActiveTab = 'adventure' | 'combat' | 'character' | 'map' | 'journal' | 'skills' | 'chains' | 'achievements' | 'settings';
+// Single source of truth for navigable tabs. Both the ActiveTab type and any
+// runtime whitelist (e.g. the terminal `/tab` command) derive from this array,
+// so adding a tab can never desync the union from the validator again.
+export const ALL_TABS = [
+  'adventure', 'combat', 'character', 'map', 'journal',
+  'skills', 'chains', 'achievements', 'reputation', 'settings',
+] as const;
+export type ActiveTab = (typeof ALL_TABS)[number];
 export type Theme = 'green' | 'amber';
 
 interface UIState {

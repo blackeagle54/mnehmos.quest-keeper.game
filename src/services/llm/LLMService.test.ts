@@ -17,6 +17,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const syncState = vi.fn().mockResolvedValue(undefined);
 const syncCombatState = vi.fn().mockResolvedValue(undefined);
 const syncAchievements = vi.fn().mockResolvedValue(undefined);
+const syncReputation = vi.fn().mockResolvedValue(undefined);
 
 let activeCharacterId: string | null = 'char-1';
 
@@ -35,6 +36,12 @@ vi.mock('../../stores/combatStore', () => ({
 vi.mock('../../stores/achievementStore', () => ({
   useAchievementStore: {
     getState: () => ({ syncAchievements }),
+  },
+}));
+
+vi.mock('../../stores/reputationStore', () => ({
+  useReputationStore: {
+    getState: () => ({ syncReputation }),
   },
 }));
 
@@ -98,5 +105,46 @@ describe('LLMService.handleBatchToolSync — achievement sync (finding 3)', () =
     await runSync(['update_character', 'achievement_manage']);
     expect(syncState).toHaveBeenCalledTimes(1);
     expect(syncAchievements).toHaveBeenCalledWith('char-1');
+  });
+});
+
+describe('LLMService.handleBatchToolSync — reputation sync', () => {
+  // Mirrors the achievement sync branch: reputation_manage must NOT route through
+  // the generic gameState syncState path (which never refreshes reputationStore);
+  // it gets its own reputationStore.syncReputation(activeCharacterId) branch.
+  beforeEach(() => {
+    syncState.mockClear();
+    syncCombatState.mockClear();
+    syncAchievements.mockClear();
+    syncReputation.mockClear();
+    activeCharacterId = 'char-1';
+  });
+
+  it('triggers a reputation sync for the active character when reputation_manage was used', async () => {
+    await runSync(['reputation_manage']);
+    expect(syncReputation).toHaveBeenCalledWith('char-1');
+  });
+
+  it('does NOT route reputation_manage through the generic gameState syncState path', async () => {
+    await runSync(['reputation_manage']);
+    expect(syncState).not.toHaveBeenCalled();
+  });
+
+  it('skips the reputation sync when there is no active character', async () => {
+    activeCharacterId = null;
+    await runSync(['reputation_manage']);
+    expect(syncReputation).not.toHaveBeenCalled();
+  });
+
+  it('still triggers a gameState sync for a genuine game-state tool', async () => {
+    await runSync(['update_character']);
+    expect(syncState).toHaveBeenCalledTimes(1);
+    expect(syncReputation).not.toHaveBeenCalled();
+  });
+
+  it('syncs both game state and reputation when a mix of tools is used', async () => {
+    await runSync(['update_character', 'reputation_manage']);
+    expect(syncState).toHaveBeenCalledTimes(1);
+    expect(syncReputation).toHaveBeenCalledWith('char-1');
   });
 });
