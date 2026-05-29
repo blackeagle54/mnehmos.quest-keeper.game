@@ -8,6 +8,7 @@ import { CharacterSheetView } from '../viewport/CharacterSheetView';
 import { SkillsView } from '../viewport/SkillsView';
 import { QuestChainView } from '../viewport/QuestChainView';
 import { AchievementsView } from '../viewport/AchievementsView';
+import { ReputationView } from '../viewport/ReputationView';
 import { SettingsView } from '../viewport/SettingsView';
 
 import { useTheme } from '../../context/ThemeContext';
@@ -38,6 +39,8 @@ export const MainViewport: React.FC<MainViewportProps> = ({ className }) => {
         return <QuestChainView />;
       case 'achievements':
         return <AchievementsView />;
+      case 'reputation':
+        return <ReputationView />;
       case 'settings':
         return <SettingsView />;
       default:

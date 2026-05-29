@@ -42,9 +42,9 @@ const GAME_STATE_TOOLS = new Set([
     // quest_manage chain mutations (set_chain / select_branch) change quest
     // unlock state, so a resync is needed after the LLM calls it.
     'quest_manage'
-    // NOTE: achievement_manage is intentionally NOT here — the gameState sync
-    // does not refresh the achievementStore. It is handled by ACHIEVEMENT_TOOLS
-    // below via a dedicated achievementStore.syncAchievements(...) sync.
+    // NOTE: achievement_manage and reputation_manage are intentionally NOT here —
+    // the gameState sync does not refresh their stores. They are handled by
+    // ACHIEVEMENT_TOOLS / REPUTATION_TOOLS below via dedicated per-store syncs.
 ]);
 
 // Achievement tools that should trigger an achievement-store resync. The
@@ -52,6 +52,13 @@ const GAME_STATE_TOOLS = new Set([
 // achievement_manage needs its own sync branch keyed on the active character.
 const ACHIEVEMENT_TOOLS = new Set([
     'achievement_manage'
+]);
+
+// Reputation tools that should trigger a reputation-store resync. The gameState
+// sync (GAME_STATE_TOOLS) does NOT refresh reputationStore, so reputation_manage
+// needs its own sync branch keyed on the active character (mirrors achievements).
+const REPUTATION_TOOLS = new Set([
+    'reputation_manage'
 ]);
 
 class LLMService {
@@ -164,16 +171,17 @@ class LLMService {
         const needsCombatSync = toolNames.some(name => COMBAT_TOOLS.has(name));
         const needsGameStateSync = toolNames.some(name => GAME_STATE_TOOLS.has(name));
         const needsAchievementSync = toolNames.some(name => ACHIEVEMENT_TOOLS.has(name));
+        const needsReputationSync = toolNames.some(name => REPUTATION_TOOLS.has(name));
 
         // Execute syncs in parallel
         const syncPromises: Promise<void>[] = [];
 
-        // The gameState sync AND the achievement sync both need gameStateStore
-        // (achievements resolve the active character from it). Import it ONCE and
-        // share the promise so we don't fire two concurrent imports of the same
-        // module.
+        // The gameState sync AND the achievement/reputation syncs all need
+        // gameStateStore (they resolve the active character from it). Import it
+        // ONCE and share the promise so we don't fire concurrent imports of the
+        // same module.
         const gameStatePromise =
-            needsGameStateSync || needsAchievementSync
+            needsGameStateSync || needsAchievementSync || needsReputationSync
                 ? import('../../stores/gameStateStore')
                 : null;
 
@@ -211,6 +219,25 @@ class LLMService {
                     const { useAchievementStore } = await import('../../stores/achievementStore');
                     await useAchievementStore.getState().syncAchievements(characterId);
                 })().catch(e => console.warn('[LLMService] Achievement sync failed:', e))
+            );
+        }
+
+        if (needsReputationSync) {
+            console.log('[LLMService] Reputation tools used - syncing reputation');
+            syncPromises.push(
+                (async () => {
+                    // Resolve the active character the same way the achievement
+                    // branch does: gameStateStore is the POV source of truth.
+                    // Without one there is nothing to sync.
+                    const { useGameStateStore } = await gameStatePromise!;
+                    const characterId = useGameStateStore.getState().activeCharacterId;
+                    if (!characterId) {
+                        console.log('[LLMService] No active character - skipping reputation sync');
+                        return;
+                    }
+                    const { useReputationStore } = await import('../../stores/reputationStore');
+                    await useReputationStore.getState().syncReputation(characterId);
+                })().catch(e => console.warn('[LLMService] Reputation sync failed:', e))
             );
         }
 
