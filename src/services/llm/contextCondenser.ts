@@ -57,9 +57,17 @@ function contentToText(content: ChatMessage['content']): string {
   return JSON.stringify(content) ?? '';
 }
 
-/** Estimate tokens for a single message's content the way the trimmer accounts for it. */
-function messageTokens(msg: ChatMessage, estimateTokens: (t: string) => number): number {
-  return estimateTokens(contentToText(msg.content));
+/**
+ * Estimate tokens for a single message the way the wire payload accounts for it.
+ * Counts not just prose content but the tool-call arguments (a pure tool-use turn has
+ * empty prose but a heavy `toolCalls` blob) and a tool result's `toolCallId`, so the
+ * under-budget fast-path and tail budgeting never underestimate the real prompt size.
+ */
+export function messageTokens(msg: ChatMessage, estimateTokens: (t: string) => number): number {
+  const parts = [contentToText(msg.content)];
+  if (msg.toolCalls?.length) parts.push(JSON.stringify(msg.toolCalls) ?? '');
+  if (msg.role === 'tool' && msg.toolCallId) parts.push(msg.toolCallId);
+  return estimateTokens(parts.join('\n'));
 }
 
 /** Total estimated tokens for a list of messages. */
@@ -254,10 +262,13 @@ export function condenseHistory(
   const out: ChatMessage[] = [];
   if (systemMsg) out.push(systemMsg);
 
+  // Track where the (synthetic, lossy) recap lands so the last-resort fit-safeguard
+  // can operate on it ALONE. -1 means no recap was inserted.
+  let recapIndex = -1;
   if (evictedMessages.length > 0) {
     let recap = strategy.summarize(evictedMessages);
-    // Budget left for the recap. estimateTokens is char/4-style; convert the token
-    // budget back to a char budget and hard-cap the recap so the whole result fits.
+    // Budget left for the recap. Derive the clip using the SUPPLIED estimator so no
+    // char/4 assumption leaks in (estimateTokens may be anything).
     const recapTokenBudget = maxTokens - systemTokens - tailTokens;
     if (recapTokenBudget <= 0) {
       // No room for any recap once priority info is accounted for — drop it.
@@ -266,6 +277,7 @@ export function condenseHistory(
       recap = truncateToTokenBudget(recap, recapTokenBudget, estimateTokens);
     }
     if (recap) {
+      recapIndex = out.length;
       out.push({ role: 'user', content: recap });
     }
   }
@@ -274,39 +286,43 @@ export function condenseHistory(
     out.push(...unit.messages);
   }
 
-  // Last-resort safeguard: a single KEPT message (e.g. the final turn, which is
-  // never evicted — invariant #9) can itself exceed the budget, so priority-info
-  // preservation alone can't guarantee the fit. Hard-truncate the largest
-  // STRING-content message until the whole result fits, mirroring the old
-  // truncator. Structured/tool content is left intact so tool pairing stays
-  // provider-valid. Bounded by a safety counter (each pass shrinks one message).
-  let safety = out.length + 1;
-  while (totalTokens(out, estimateTokens) > maxTokens && safety-- > 0) {
-    let idx = -1;
-    let largest = 0;
-    for (let k = 0; k < out.length; k++) {
-      if (out[k].role === 'system') continue;
-      if (typeof out[k].content !== 'string') continue;
-      const t = messageTokens(out[k], estimateTokens);
-      if (t > largest) {
-        largest = t;
-        idx = k;
-      }
-    }
-    if (idx < 0) break; // nothing safely sliceable (only system/structured left)
+  // Last-resort safeguard. A single KEPT message (e.g. the final/current turn, which
+  // is never evicted — invariant #9) can itself exceed the budget, so priority-info
+  // preservation alone can't guarantee the fit. CRITICAL DESIGN DECISION: we NEVER
+  // silently mutate a real message — not the protected recent tail, and above all not
+  // the user's active/final prompt. The ONLY thing we may clip is the synthetic recap,
+  // which is lossy by design. So: shrink the recap (via the estimator-aware helper),
+  // and if it still can't make the result fit, DROP the recap entirely. After that,
+  // if a single real message alone still exceeds maxTokens, the result stays over
+  // budget — the accepted, correct trade-off (per-turn re-trim + the tool-result cap
+  // bound the realistic case; the user's words are never edited).
+  if (recapIndex >= 0 && totalTokens(out, estimateTokens) > maxTokens) {
+    const recapContent = out[recapIndex].content as string;
     const overTokens = totalTokens(out, estimateTokens) - maxTokens;
-    const content = out[idx].content as string;
-    const newLen = Math.max(0, content.length - (overTokens * 4 + 16));
-    out[idx] = { ...out[idx], content: content.slice(0, newLen) + '…[truncated]' };
+    const recapTokens = messageTokens(out[recapIndex], estimateTokens);
+    const targetRecapTokens = recapTokens - overTokens;
+    const clipped =
+      targetRecapTokens > 0
+        ? truncateToTokenBudget(recapContent, targetRecapTokens, estimateTokens)
+        : '';
+    if (clipped) {
+      out[recapIndex] = { ...out[recapIndex], content: clipped };
+    } else {
+      // Recap can't fit even truncated — drop it (never touch a real message).
+      out.splice(recapIndex, 1);
+    }
   }
 
   return out;
 }
 
 /**
- * Deterministically shrink `text` so its estimated tokens fit `tokenBudget`.
- * Reserves room for a clear truncation marker and the recap's closing bracket so the
- * result still reads as a (clipped) non-authoritative recap.
+ * Deterministically shrink `text` so its estimated tokens fit `tokenBudget`, using the
+ * SUPPLIED estimator (no char/4 assumption). Reserves room for a clear truncation
+ * marker so the result still reads as a clipped, non-authoritative recap.
+ *
+ * Returns '' when even the bare truncation marker doesn't fit the budget, so the caller
+ * can drop the recap rather than emit a marker-only string that can't make progress.
  */
 function truncateToTokenBudget(
   text: string,
@@ -314,13 +330,20 @@ function truncateToTokenBudget(
   estimateTokens: (t: string) => number
 ): string {
   const suffix = '…]';
-  // Binary-search-free deterministic clamp: start from the char budget the estimator
-  // implies, then back off until it fits (handles non-linear estimators safely).
-  let charBudget = Math.max(0, tokenBudget * 4 - suffix.length);
+  // If even the marker alone exceeds the budget, nothing fits — signal "drop it".
+  if (tokenBudget <= 0 || estimateTokens(suffix) > tokenBudget) return '';
+
+  // Deterministic clamp driven entirely by the supplied estimator. Start from the full
+  // text and geometrically shrink the char budget until the candidate fits. This makes
+  // no assumption about the estimator's chars-per-token ratio (linear or not).
+  let charBudget = Math.max(0, text.length);
   let candidate = text.slice(0, charBudget) + suffix;
   while (charBudget > 0 && estimateTokens(candidate) > tokenBudget) {
-    charBudget = Math.floor(charBudget * 0.9);
+    // Shrink by at least one char so progress is guaranteed even for tiny budgets.
+    charBudget = Math.min(charBudget - 1, Math.floor(charBudget * 0.9));
     candidate = text.slice(0, charBudget) + suffix;
   }
-  return charBudget > 0 ? candidate : '';
+  // charBudget === 0 means only the marker fits — that's valid (the marker fits the
+  // budget per the guard above), so emit just the marker rather than dropping.
+  return candidate;
 }

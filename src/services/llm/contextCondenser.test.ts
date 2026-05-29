@@ -21,6 +21,7 @@ import { describe, it, expect } from 'vitest';
 import {
   condenseHistory,
   heuristicStrategy,
+  messageTokens,
   RECAP_PREFIX,
   type CondenseOptions,
 } from './contextCondenser';
@@ -41,7 +42,7 @@ const opts = (overrides: Partial<CondenseOptions> = {}): CondenseOptions => ({
 // production trimmer does (stringify non-string content).
 const totalTokens = (history: ChatMessage[]): number =>
   history.reduce((sum, m) => {
-    const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+    const c = typeof m.content === 'string' ? m.content : (JSON.stringify(m.content) ?? '');
     return sum + estimateTokens(c);
   }, 0);
 
@@ -269,6 +270,91 @@ describe('heuristicStrategy', () => {
   });
 });
 
+describe('messageTokens — tool-call payload accounting', () => {
+  // A pure assistant tool-use turn (empty prose, big toolCalls arguments) must NOT
+  // count as ~0 tokens, otherwise the under-budget fast-path and tail budgeting
+  // underestimate the real prompt size. The tool-call arguments are part of the
+  // wire payload the provider sends, so they must be measured.
+  it('counts an empty-content assistant message with a large toolCalls blob as > 0 tokens', () => {
+    const bigArgs = { blob: 'y'.repeat(4000) };
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      toolCalls: [{ id: 'big-1', name: 'do_thing', arguments: bigArgs }],
+    };
+
+    // > 0 (it must NOT be ~0), and large enough to reflect the 4000-char blob.
+    expect(messageTokens(msg, estimateTokens)).toBeGreaterThan(500);
+  });
+
+  it('counts the toolCallId of a tool message toward its size', () => {
+    const msg: ChatMessage = { role: 'tool', content: '', toolCallId: 'call-xyz' };
+    expect(messageTokens(msg, estimateTokens)).toBeGreaterThan(0);
+  });
+
+  it('condenses a history of empty-prose tool-use turns rather than passing the under-budget fast-path', () => {
+    const maxTokens = 200;
+    const bigArgs = { blob: 'z'.repeat(2000) };
+    // Each pure tool-use turn carries empty prose but a heavy toolCalls payload.
+    // If toolCalls were ignored, totalTokens would read ~0 and the fast-path would
+    // return the history unchanged (over the real budget). It must condense instead.
+    const history: ChatMessage[] = [
+      { role: 'system', content: 'You are the DM.' },
+      ...Array.from({ length: 10 }, (_, i): ChatMessage[] => [
+        {
+          role: 'assistant',
+          content: '',
+          toolCalls: [{ id: `tc-${i}`, name: 'scan', arguments: bigArgs }],
+        },
+        { role: 'tool', content: 'ok', toolCallId: `tc-${i}` },
+      ]).flat(),
+      { role: 'user', content: 'final message' },
+    ];
+
+    const result = condenseHistory(history, opts({ maxTokens, recentTurnsToKeep: 2 }));
+
+    // It must have actually condensed (dropped/summarized turns), not returned as-is.
+    expect(result.length).toBeLessThan(history.length);
+  });
+});
+
+describe('condenseHistory — estimator-aware recap truncation', () => {
+  // The truncation helper must respect WHATEVER estimateTokens is supplied, not the
+  // hardcoded char/4 heuristic. Use a 1-char-per-token estimator (text.length) and a
+  // matching totalTokens so the budget is exercised under a non-char/4 estimator.
+  const idEstimate = (t: string): number => t.length;
+  const idTotal = (history: ChatMessage[]): number =>
+    history.reduce((sum, m) => {
+      const parts = [typeof m.content === 'string' ? m.content : (JSON.stringify(m.content) ?? '')];
+      if (m.toolCalls?.length) parts.push(JSON.stringify(m.toolCalls) ?? '');
+      if (m.role === 'tool' && m.toolCallId) parts.push(m.toolCallId);
+      return sum + idEstimate(parts.join('\n'));
+    }, 0);
+
+  it('respects a non-char/4 estimator when truncating the recap', () => {
+    // 1 token == 1 char here. With a tight budget the recap MUST be clipped using the
+    // supplied estimator (not budget*4), so the whole result still fits.
+    const maxTokens = 400;
+    const history: ChatMessage[] = [
+      { role: 'system', content: 'You are the DM.' },
+      ...Array.from({ length: 10 }, (_, i): ChatMessage => ({
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content: longText(`scene${i}`),
+      })),
+      { role: 'user', content: 'recent question?' },
+      { role: 'assistant', content: 'recent answer.' },
+      { role: 'user', content: 'final message' },
+    ];
+
+    const result = condenseHistory(
+      history,
+      opts({ maxTokens, recentTurnsToKeep: 3, estimateTokens: idEstimate })
+    );
+
+    expect(idTotal(result)).toBeLessThanOrEqual(maxTokens);
+  });
+});
+
 describe('condenseHistory — robustness / edge cases', () => {
   it('does not throw when a message has undefined content (a pure tool-call turn)', () => {
     const history: ChatMessage[] = [
@@ -294,20 +380,62 @@ describe('condenseHistory — robustness / edge cases', () => {
     ).not.toThrow();
   });
 
-  it('truncates an over-budget kept message so the result still fits maxTokens', () => {
+  it('never mutates the final/current message even when it alone exceeds maxTokens', () => {
     const maxTokens = 200;
+    const finalContent = 'x'.repeat(maxTokens * 4 * 3);
+    const finalMsg: ChatMessage = { role: 'user', content: finalContent };
     const history: ChatMessage[] = [
       { role: 'system', content: 'DM' },
       { role: 'user', content: longText('old-1') },
       { role: 'assistant', content: longText('old-2') },
       // The final (always-kept) message ALONE far exceeds the whole budget.
-      { role: 'user', content: 'x'.repeat(maxTokens * 4 * 3) },
+      finalMsg,
     ];
 
     const result = condenseHistory(history, opts({ maxTokens, recentTurnsToKeep: 1 }));
 
+    // CRITICAL: never silently rewrite the user's active/final prompt. The final
+    // message must be present VERBATIM (byte-for-byte), never truncated/mutated.
+    expect(result[result.length - 1]).toEqual(finalMsg);
+    expect(result[result.length - 1].content).toBe(finalContent);
+
+    // The recap is the lossy, synthetic thing — it is dropped/truncated to reclaim
+    // space, so there must be NO recap left when the final message alone blows the
+    // whole budget.
+    const recapCount = result.filter(
+      (m) => typeof m.content === 'string' && m.content.includes(RECAP_PREFIX)
+    ).length;
+    expect(recapCount).toBe(0);
+
+    // Accepted trade-off: a single REAL message larger than maxTokens means the
+    // result may remain over budget — the user's words are never edited.
+    expect(totalTokens(result)).toBeGreaterThan(maxTokens);
+  });
+
+  it('truncates only the synthetic recap (never a real message) to reclaim budget', () => {
+    // System + protected tail fit under budget, but the recap of evicted turns pushes
+    // it over. Only the recap may be clipped; the real tail messages stay verbatim.
+    const maxTokens = 220;
+    const tail: ChatMessage[] = [
+      { role: 'user', content: 'recent-a short question' },
+      { role: 'assistant', content: 'recent-b short answer' },
+      { role: 'user', content: 'final short message' },
+    ];
+    const history: ChatMessage[] = [
+      { role: 'system', content: 'You are the DM.' },
+      ...Array.from({ length: 8 }, (_, i): ChatMessage => ({
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content: longText(`evicted${i}`),
+      })),
+      ...tail,
+    ];
+
+    const result = condenseHistory(history, opts({ maxTokens, recentTurnsToKeep: 3 }));
+
+    // Real tail messages survive verbatim — none of them is mutated.
+    const actualTail = result.slice(result.length - tail.length);
+    expect(actualTail).toEqual(tail);
+    // And the whole result fits the budget (the recap absorbed the clipping).
     expect(totalTokens(result)).toBeLessThanOrEqual(maxTokens);
-    // The final message is still present (kept), just hard-truncated as a last resort.
-    expect(result[result.length - 1].role).toBe('user');
   });
 });
