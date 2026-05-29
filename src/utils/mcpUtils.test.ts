@@ -11,6 +11,8 @@ import {
   executeBatchToolCalls,
   debounce,
   throttle,
+  extractEmbeddedJson,
+  extractEmbeddedStateJson,
 } from './mcpUtils';
 
 describe('mcpUtils', () => {
@@ -241,6 +243,46 @@ describe('mcpUtils', () => {
       vi.advanceTimersByTime(100);
 
       expect(fn).toHaveBeenCalledWith('arg1', 'arg2');
+    });
+  });
+
+  describe('extractEmbeddedJson', () => {
+    it('extracts a SKILL_MANAGE_JSON block', () => {
+      const payload = { actionType: 'get_skills', skills: { combat: { xp: 0, level: 1 } } };
+      const text = `Some markdown output\n<!-- SKILL_MANAGE_JSON\n${JSON.stringify(payload)}\nSKILL_MANAGE_JSON -->\n`;
+      expect(extractEmbeddedJson(text, 'SKILL_MANAGE_JSON')).toEqual(payload);
+    });
+
+    it('extracts a STATE_JSON block via the generalized helper', () => {
+      const payload = { combat: { active: true } };
+      const text = `Header\n<!-- STATE_JSON\n${JSON.stringify(payload)}\nSTATE_JSON -->\n`;
+      expect(extractEmbeddedJson(text, 'STATE_JSON')).toEqual(payload);
+    });
+
+    it('returns null when the tag is absent', () => {
+      expect(extractEmbeddedJson('no markers here', 'SKILL_MANAGE_JSON')).toBeNull();
+    });
+
+    it('returns null on malformed JSON inside the block', () => {
+      const text = '<!-- SKILL_MANAGE_JSON\n{not valid json\nSKILL_MANAGE_JSON -->';
+      expect(extractEmbeddedJson(text, 'SKILL_MANAGE_JSON')).toBeNull();
+    });
+
+    it('returns null for empty/undefined text', () => {
+      expect(extractEmbeddedJson('', 'STATE_JSON')).toBeNull();
+      expect(extractEmbeddedJson(undefined as unknown as string, 'STATE_JSON')).toBeNull();
+    });
+  });
+
+  describe('extractEmbeddedStateJson (back-compat wrapper)', () => {
+    it('still extracts the STATE_JSON block after the refactor', () => {
+      const payload = { encounter: { id: 'enc-1' }, turn: 3 };
+      const text = `Combat round\n<!-- STATE_JSON\n${JSON.stringify(payload)}\nSTATE_JSON -->\n`;
+      expect(extractEmbeddedStateJson(text)).toEqual(payload);
+    });
+
+    it('returns null when no STATE_JSON block is present', () => {
+      expect(extractEmbeddedStateJson('plain text, no state')).toBeNull();
     });
   });
 

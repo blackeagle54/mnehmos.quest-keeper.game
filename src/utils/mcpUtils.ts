@@ -230,26 +230,57 @@ export function throttle<T extends (...args: any[]) => any>(
   };
 }
 /**
- * Extract embedded JSON from tool response text
- * Looks for <!-- STATE_JSON ... STATE_JSON --> markers
+ * Escape regex metacharacters in a tag so it can be interpolated safely.
  */
-export function extractEmbeddedStateJson(text: string): any | null {
-  // DEBUG: Log what we're receiving
-  console.log('[extractEmbeddedStateJson] Input length:', text?.length);
-  console.log('[extractEmbeddedStateJson] Has STATE_JSON marker:', text?.includes('STATE_JSON'));
-  
-  const match = text.match(/<!-- STATE_JSON\n([\s\S]*?)\nSTATE_JSON -->/);
-  console.log('[extractEmbeddedStateJson] Regex match result:', !!match);
-  
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Extract an embedded JSON block from tool response text.
+ *
+ * The engine embeds JSON inside HTML comment markers shaped like:
+ *   <!-- {TAG}\n{...json...}\n{TAG} -->
+ * The `tag` here is the FULL marker token, matching what the engine emits:
+ *   - 'STATE_JSON'        (combat/world sync — raw literal in combat-handlers)
+ *   - 'SKILL_MANAGE_JSON' (skill updates — RichFormatter.embedJson(parsed, 'SKILL_MANAGE'))
+ * (embedJson(data, 'SKILL_MANAGE') appends '_JSON', so the token is 'SKILL_MANAGE_JSON'.)
+ *
+ * Tag-parameterized so a single helper serves every embedded payload. Returns
+ * the parsed object, or null if the tag is missing / the JSON is malformed.
+ *
+ * Note: debug logging is gated behind DEBUG_MCP_PARSING (off in production) —
+ * this is a hot path on every formatted tool response, so it must stay quiet.
+ */
+export function extractEmbeddedJson<T = any>(text: string, tag: string): T | null {
+  if (!text) return null;
+
+  // Match the embedded comment block for the given tag. The body is captured
+  // non-greedily so adjacent blocks don't bleed together.
+  const escaped = escapeRegExp(tag);
+  const pattern = new RegExp(`<!-- ${escaped}\\n([\\s\\S]*?)\\n${escaped} -->`);
+  const match = text.match(pattern);
+
   if (match && match[1]) {
     try {
-      const parsed = JSON.parse(match[1]);
-      console.log('[extractEmbeddedStateJson] Successfully parsed JSON with keys:', Object.keys(parsed));
+      const parsed = JSON.parse(match[1]) as T;
+      if (DEBUG_MCP_PARSING) {
+        console.log(`[extractEmbeddedJson] Parsed ${tag}_JSON with keys:`, Object.keys(parsed as any));
+      }
       return parsed;
     } catch (e) {
-      console.warn('[extractEmbeddedStateJson] Failed to parse embedded JSON:', e);
+      if (DEBUG_MCP_PARSING) console.warn(`[extractEmbeddedJson] Failed to parse ${tag}_JSON:`, e);
       return null;
     }
   }
   return null;
+}
+
+/**
+ * Extract embedded STATE_JSON from tool response text.
+ * Back-compat wrapper around the generalized extractEmbeddedJson() — preserves
+ * the original STATE_JSON behavior for existing combat/LLM consumers.
+ */
+export function extractEmbeddedStateJson(text: string): any | null {
+  return extractEmbeddedJson(text, 'STATE_JSON');
 }
