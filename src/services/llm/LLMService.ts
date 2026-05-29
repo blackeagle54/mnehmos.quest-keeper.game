@@ -41,7 +41,10 @@ const GAME_STATE_TOOLS = new Set([
     'skill_manage',
     // quest_manage chain mutations (set_chain / select_branch) change quest
     // unlock state, so a resync is needed after the LLM calls it.
-    'quest_manage'
+    'quest_manage',
+    // achievement_manage unlock/progress/revoke change character-derived state,
+    // so a resync is needed after the LLM calls it.
+    'achievement_manage'
 ]);
 
 class LLMService {
