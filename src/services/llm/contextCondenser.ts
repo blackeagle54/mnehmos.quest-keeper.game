@@ -1,0 +1,368 @@
+/**
+ * Deterministic context condenser (Phase 5).
+ *
+ * Upgrades conversation token-budget enforcement from a destructive oldest-first
+ * truncator into a condenser that SUMMARIZES evicted oldest turns into ONE compact
+ * recap instead of dropping them. This is FRONTEND-ONLY narrative continuity: the
+ * engine never stores the chat transcript and game state is DB-backed (reloaded via
+ * tools), so the recap is explicitly NON-AUTHORITATIVE — the model must trust
+ * DB-reloaded state over the recap (mechanical honesty).
+ *
+ * Design notes:
+ *  - PURE / deterministic: same input => same output. No Date.now / Math.random.
+ *  - Pluggable: `CondenseStrategy.summarize` is the seam an LLM-based summarizer can
+ *    slot into later; `heuristicStrategy` is the deterministic default.
+ *  - Recap role is **'user'**, not 'system'. AnthropicProvider strips ALL `role:'system'`
+ *    messages out of the `messages` array (only the first becomes `body.system`), and
+ *    GeminiProvider maps system->user; a mid-conversation system recap would be silently
+ *    dropped by Anthropic. A 'user'-role recap survives every provider's mapping. The
+ *    recap text is clearly labelled as a non-authoritative summary so its role is
+ *    self-evident to the model.
+ *  - TOOL PAIRING INVARIANT: an assistant `toolCalls` (tool_use) message and its
+ *    matching `role:'tool'` result(s) (linked by toolCallId) are treated as ONE atomic
+ *    unit. We either keep both verbatim or summarize both into the recap — never split
+ *    them. Anthropic hard-errors on an orphaned tool_result or tool_use.
+ */
+import type { ChatMessage } from './types';
+
+export interface CondenseOptions {
+  /** Hard token ceiling for the returned history (recap counts toward this). */
+  maxTokens: number;
+  /** Most-recent messages always kept verbatim (priority info). */
+  recentTurnsToKeep: number;
+  /** Token estimator (production uses char/4). */
+  estimateTokens: (t: string) => number;
+}
+
+/**
+ * Pluggable summarization seam. The default is `heuristicStrategy` (deterministic);
+ * an LLM-based strategy can be supplied later without touching the algorithm.
+ */
+export interface CondenseStrategy {
+  summarize(evicted: ChatMessage[]): string;
+}
+
+/** Stable prefix that marks the synthetic recap message (asserted by tests). */
+export const RECAP_PREFIX = '[Earlier this session';
+
+/**
+ * Normalize a message's content to a string for measurement / digesting.
+ * NB: `JSON.stringify(undefined)` returns the primitive `undefined` (not a string),
+ * so null/undefined content MUST be guarded here or downstream `.length`/`.trim()`
+ * throws — e.g. an assistant turn that is a pure tool-call has no prose content.
+ */
+function contentToText(content: ChatMessage['content']): string {
+  if (typeof content === 'string') return content;
+  if (content == null) return '';
+  return JSON.stringify(content) ?? '';
+}
+
+/**
+ * Estimate tokens for a single message the way the wire payload accounts for it.
+ * Counts not just prose content but the tool-call arguments (a pure tool-use turn has
+ * empty prose but a heavy `toolCalls` blob) and a tool result's `toolCallId`, so the
+ * under-budget fast-path and tail budgeting never underestimate the real prompt size.
+ */
+export function messageTokens(msg: ChatMessage, estimateTokens: (t: string) => number): number {
+  const parts = [contentToText(msg.content)];
+  if (msg.toolCalls?.length) parts.push(JSON.stringify(msg.toolCalls) ?? '');
+  if (msg.role === 'tool' && msg.toolCallId) parts.push(msg.toolCallId);
+  return estimateTokens(parts.join('\n'));
+}
+
+/** Total estimated tokens for a list of messages. */
+function totalTokens(history: ChatMessage[], estimateTokens: (t: string) => number): number {
+  return history.reduce((sum, m) => sum + messageTokens(m, estimateTokens), 0);
+}
+
+/**
+ * Collapse a single message into one compact, deterministic line of narrative.
+ * Verbose tool payloads are stripped/collapsed; user/assistant prose is kept but
+ * length-capped so a single huge turn can't dominate the recap.
+ */
+function digestMessage(msg: ChatMessage): string | null {
+  // IDEMPOTENCY (Fix 2): a prior synthetic recap is itself evictable now that
+  // trimHistory runs before EVERY provider call. Detect it FIRST — before any
+  // speaker-label path — and absorb its INNER digest text flatly (no `Player:`/`DM:`
+  // label, no nesting in another RECAP_PREFIX) so a long session can't compound
+  // `[Earlier this session ... [Earlier this session ...]]` drift turn after turn.
+  if (typeof msg.content === 'string' && msg.content.startsWith(RECAP_PREFIX)) {
+    // Extract the digest body between the prefix's `): ` and the trailing `]`.
+    const start = msg.content.indexOf('): ');
+    const end = msg.content.lastIndexOf(']');
+    if (start !== -1 && end !== -1 && end > start + 3) {
+      const inner = msg.content.slice(start + 3, end).trim();
+      return inner || null;
+    }
+    // Shape didn't match (e.g. a truncated recap) — return the raw content unlabelled
+    // so it's still absorbed flatly rather than relabelled as player prose.
+    return msg.content.trim() || null;
+  }
+
+  // Tool results: collapse to a noise-free marker. The full payload was already
+  // processed by the engine and lives in the DB — it has no narrative value here.
+  if (msg.role === 'tool') {
+    return null;
+  }
+
+  // Assistant tool-call messages: collapse to the tool names invoked (intent), not
+  // the raw arguments. Keep any accompanying narrative text the assistant emitted.
+  if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+    // Read the tool NAME from either shape (Fix 1): the typed ToolCall {name} OR the
+    // streamed OpenAI wire shape `{ id, type:'function', function:{ name, arguments } }`
+    // that LLMService.streamMessage pushes (cast `as any`). The streamed path is the
+    // primary one (ChatInput), so reading only `tc.name` would drop every tool action.
+    const names = msg.toolCalls
+      .map((tc) => tc.name ?? (tc as any).function?.name)
+      .filter(Boolean)
+      .join(', ');
+    const text = contentToText(msg.content).trim();
+    const action = names ? `(used: ${names})` : '';
+    const line = [text, action].filter(Boolean).join(' ').trim();
+    return line || null;
+  }
+
+  // Plain user / assistant / (in-conversation) system narrative.
+  const text = contentToText(msg.content).trim();
+  if (!text) return null;
+
+  // Cap a single turn so one verbose message can't swamp the digest. Kept short so
+  // EVERY evicted turn stays represented in a bounded recap (narrative continuity
+  // beats verbatim depth here — the DB holds the authoritative detail).
+  const MAX_LINE_CHARS = 120;
+  const capped = text.length > MAX_LINE_CHARS ? text.slice(0, MAX_LINE_CHARS) + '…' : text;
+
+  const speaker = msg.role === 'assistant' ? 'DM' : msg.role === 'user' ? 'Player' : msg.role;
+  return `${speaker}: ${capped}`;
+}
+
+/**
+ * Default deterministic strategy. Builds a compact recap by digesting each evicted
+ * user/assistant turn into one line, dropping tool noise, and de-duplicating
+ * consecutive identical lines. Pure: same input => identical output.
+ */
+export const heuristicStrategy: CondenseStrategy = {
+  summarize(evicted: ChatMessage[]): string {
+    const lines: string[] = [];
+    let prev: string | null = null;
+    for (const msg of evicted) {
+      const line = digestMessage(msg);
+      if (line && line !== prev) {
+        lines.push(line);
+        prev = line;
+      }
+    }
+    const body = lines.join(' | ');
+    return `${RECAP_PREFIX} (non-authoritative summary — trust live engine/DB state over this recap): ${body}]`;
+  },
+};
+
+/**
+ * An atomic unit of history: usually a single message, but an assistant tool_use
+ * message is bundled with its following tool_result(s) so the pair can never split.
+ */
+interface HistoryUnit {
+  messages: ChatMessage[];
+  tokens: number;
+}
+
+/**
+ * Partition non-system messages into atomic units, bundling each assistant
+ * `toolCalls` message with the tool-result messages that answer it.
+ */
+function buildUnits(
+  messages: ChatMessage[],
+  estimateTokens: (t: string) => number
+): HistoryUnit[] {
+  const units: HistoryUnit[] = [];
+  let i = 0;
+  while (i < messages.length) {
+    const msg = messages[i];
+    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+      // Pull in the contiguous run of tool-result messages that follow. Anthropic
+      // requires the tool_result(s) to immediately follow the tool_use, so a
+      // contiguous sweep captures the matching results.
+      const expectedIds = new Set(msg.toolCalls.map((tc) => tc.id).filter(Boolean) as string[]);
+      const bundle: ChatMessage[] = [msg];
+      let j = i + 1;
+      while (
+        j < messages.length &&
+        messages[j].role === 'tool' &&
+        (messages[j].toolCallId === undefined || expectedIds.has(messages[j].toolCallId as string))
+      ) {
+        bundle.push(messages[j]);
+        j++;
+      }
+      units.push({ messages: bundle, tokens: totalTokens(bundle, estimateTokens) });
+      i = j;
+    } else {
+      units.push({ messages: [msg], tokens: messageTokens(msg, estimateTokens) });
+      i++;
+    }
+  }
+  return units;
+}
+
+/**
+ * Condense a chat history to fit `maxTokens`, summarizing evicted oldest turns into
+ * ONE recap message instead of dropping them. Pure / deterministic.
+ *
+ * Algorithm:
+ *  1. Under budget => return history unchanged (referential identity).
+ *  2. Preserve history[0] verbatim if it's a system message.
+ *  3. Always keep the most-recent `recentTurnsToKeep` messages verbatim (expanded so a
+ *     tool pair is never split, and the final message is always included).
+ *  4. Summarize the evictable middle/oldest units into ONE recap inserted right after
+ *     the system message. Atomic tool units are summarized whole.
+ *  5. If the protected tail itself overflows the budget, evict its OLDER units into the
+ *     recap too (never the final unit — invariant #9), then deterministically truncate
+ *     the recap so the whole result fits; the recap counts toward the budget.
+ */
+export function condenseHistory(
+  history: ChatMessage[],
+  opts: CondenseOptions,
+  strategy: CondenseStrategy = heuristicStrategy
+): ChatMessage[] {
+  const { maxTokens, recentTurnsToKeep, estimateTokens } = opts;
+
+  // 1. Under budget => identity.
+  if (totalTokens(history, estimateTokens) <= maxTokens) {
+    return history;
+  }
+
+  // 2. Preserve a leading system message verbatim.
+  const hasSystem = history.length > 0 && history[0].role === 'system';
+  const systemMsg = hasSystem ? history[0] : null;
+  const nonSystem = hasSystem ? history.slice(1) : history.slice();
+
+  // Partition the non-system body into atomic units (tool pairs bundled).
+  const units = buildUnits(nonSystem, estimateTokens);
+
+  // 3. Determine the protected recent tail by message count, then expand to whole
+  //    units so a tool pair is never split. The final message is always in the tail.
+  //    `keptUnitCount` = number of trailing units kept verbatim.
+  let keptMessages = 0;
+  let keptUnitCount = 0;
+  for (let u = units.length - 1; u >= 0; u--) {
+    if (keptMessages >= recentTurnsToKeep && keptUnitCount >= 1) break;
+    keptMessages += units[u].messages.length;
+    keptUnitCount++;
+  }
+  // Cap: never "keep" the entire body as tail if there is nothing to evict — but if
+  // every unit is in the tail there is nothing to summarize, which is fine.
+  keptUnitCount = Math.min(keptUnitCount, units.length);
+
+  // 4 + 5. Pick how many trailing units to keep verbatim. Normally that's the protected
+  //    tail (`keptUnitCount`). But if the verbatim tail itself overflows the budget, we
+  //    shrink it from the OLD end — moving older tail units into the recap — until the
+  //    verbatim portion fits (leaving room for at least a clipped recap). We never evict
+  //    the final unit: it holds the most-recent message (invariant #9). The recap is
+  //    then truncated to whatever budget remains.
+  const systemTokens = systemMsg ? messageTokens(systemMsg, estimateTokens) : 0;
+
+  let keepCount = keptUnitCount; // trailing units kept verbatim
+  const tailTokensFor = (count: number): number =>
+    units.slice(units.length - count).reduce((s, u) => s + u.tokens, 0);
+
+  // Shrink the verbatim tail (never below 1 unit) ONLY when the tail ITSELF overflows
+  // (Fix 3). Older tail units move to the recap purely because the protected tail can't
+  // fit — never to reserve a fixed recap headroom. A tail that fits with a small margin
+  // keeps all recent turns verbatim; the recap is then truncated (or dropped) into the
+  // remaining budget by the estimator-aware truncateToTokenBudget below.
+  while (keepCount > 1 && systemTokens + tailTokensFor(keepCount) > maxTokens) {
+    keepCount--;
+  }
+
+  const evictUpTo = Math.max(0, units.length - keepCount);
+  const evictedMessages = units.slice(0, evictUpTo).flatMap((u) => u.messages);
+  const keptUnits = units.slice(evictUpTo);
+  const tailTokens = keptUnits.reduce((s, u) => s + u.tokens, 0);
+
+  const out: ChatMessage[] = [];
+  if (systemMsg) out.push(systemMsg);
+
+  // Track where the (synthetic, lossy) recap lands so the last-resort fit-safeguard
+  // can operate on it ALONE. -1 means no recap was inserted.
+  let recapIndex = -1;
+  if (evictedMessages.length > 0) {
+    let recap = strategy.summarize(evictedMessages);
+    // Budget left for the recap. Derive the clip using the SUPPLIED estimator so no
+    // char/4 assumption leaks in (estimateTokens may be anything).
+    const recapTokenBudget = maxTokens - systemTokens - tailTokens;
+    if (recapTokenBudget <= 0) {
+      // No room for any recap once priority info is accounted for — drop it.
+      recap = '';
+    } else if (estimateTokens(recap) > recapTokenBudget) {
+      recap = truncateToTokenBudget(recap, recapTokenBudget, estimateTokens);
+    }
+    if (recap) {
+      recapIndex = out.length;
+      out.push({ role: 'user', content: recap });
+    }
+  }
+
+  for (const unit of keptUnits) {
+    out.push(...unit.messages);
+  }
+
+  // Last-resort safeguard. A single KEPT message (e.g. the final/current turn, which
+  // is never evicted — invariant #9) can itself exceed the budget, so priority-info
+  // preservation alone can't guarantee the fit. CRITICAL DESIGN DECISION: we NEVER
+  // silently mutate a real message — not the protected recent tail, and above all not
+  // the user's active/final prompt. The ONLY thing we may clip is the synthetic recap,
+  // which is lossy by design. So: shrink the recap (via the estimator-aware helper),
+  // and if it still can't make the result fit, DROP the recap entirely. After that,
+  // if a single real message alone still exceeds maxTokens, the result stays over
+  // budget — the accepted, correct trade-off (per-turn re-trim + the tool-result cap
+  // bound the realistic case; the user's words are never edited).
+  if (recapIndex >= 0 && totalTokens(out, estimateTokens) > maxTokens) {
+    const recapContent = out[recapIndex].content as string;
+    const overTokens = totalTokens(out, estimateTokens) - maxTokens;
+    const recapTokens = messageTokens(out[recapIndex], estimateTokens);
+    const targetRecapTokens = recapTokens - overTokens;
+    const clipped =
+      targetRecapTokens > 0
+        ? truncateToTokenBudget(recapContent, targetRecapTokens, estimateTokens)
+        : '';
+    if (clipped) {
+      out[recapIndex] = { ...out[recapIndex], content: clipped };
+    } else {
+      // Recap can't fit even truncated — drop it (never touch a real message).
+      out.splice(recapIndex, 1);
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Deterministically shrink `text` so its estimated tokens fit `tokenBudget`, using the
+ * SUPPLIED estimator (no char/4 assumption). Reserves room for a clear truncation
+ * marker so the result still reads as a clipped, non-authoritative recap.
+ *
+ * Returns '' when even the bare truncation marker doesn't fit the budget, so the caller
+ * can drop the recap rather than emit a marker-only string that can't make progress.
+ */
+function truncateToTokenBudget(
+  text: string,
+  tokenBudget: number,
+  estimateTokens: (t: string) => number
+): string {
+  const suffix = '…]';
+  // If even the marker alone exceeds the budget, nothing fits — signal "drop it".
+  if (tokenBudget <= 0 || estimateTokens(suffix) > tokenBudget) return '';
+
+  // Deterministic clamp driven entirely by the supplied estimator. Start from the full
+  // text and geometrically shrink the char budget until the candidate fits. This makes
+  // no assumption about the estimator's chars-per-token ratio (linear or not).
+  let charBudget = Math.max(0, text.length);
+  let candidate = text.slice(0, charBudget) + suffix;
+  while (charBudget > 0 && estimateTokens(candidate) > tokenBudget) {
+    // Shrink by at least one char so progress is guaranteed even for tiny budgets.
+    charBudget = Math.min(charBudget - 1, Math.floor(charBudget * 0.9));
+    candidate = text.slice(0, charBudget) + suffix;
+  }
+  // charBudget === 0 means only the marker fits — that's valid (the marker fits the
+  // budget per the guard above), so emit just the marker rather than dropping.
+  return candidate;
+}

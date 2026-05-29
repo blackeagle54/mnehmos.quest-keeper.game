@@ -62,12 +62,21 @@ vi.mock('../mcpClient', () => ({
 }));
 
 import { llmService } from './LLMService';
+import type { ChatMessage } from './types';
 
 // Typed access to the private batch-sync routine.
 const runSync = (toolNames: string[]): Promise<void> =>
   (llmService as unknown as { handleBatchToolSync: (n: string[]) => Promise<void> }).handleBatchToolSync(
     toolNames
   );
+
+// Typed access to the private budget enforcer (now backed by condenseHistory).
+const trimHistory = (history: ChatMessage[], maxTokens?: number): ChatMessage[] =>
+  (
+    llmService as unknown as {
+      trimHistory: (h: ChatMessage[], m?: number) => ChatMessage[];
+    }
+  ).trimHistory(history, maxTokens);
 
 describe('LLMService.handleBatchToolSync — achievement sync (finding 3)', () => {
   beforeEach(() => {
@@ -146,5 +155,68 @@ describe('LLMService.handleBatchToolSync — reputation sync', () => {
     await runSync(['update_character', 'reputation_manage']);
     expect(syncState).toHaveBeenCalledTimes(1);
     expect(syncReputation).toHaveBeenCalledWith('char-1');
+  });
+});
+
+describe('LLMService.trimHistory — context condensing (Phase 5)', () => {
+  // trimHistory now delegates to condenseHistory: an over-budget history must come
+  // back CONDENSED (one recap, under budget) rather than hard-truncated with the old
+  // '[...truncated due to token limit]' marker.
+  const longTurn = (label: string): string =>
+    `${label}: ` + Array.from({ length: 300 }, (_, i) => `${label}-w${i}`).join(' ');
+
+  const overBudgetHistory = (): ChatMessage[] => [
+    { role: 'system', content: 'You are the Dungeon Master.' },
+    { role: 'user', content: longTurn('arrived-at-the-gates') },
+    { role: 'assistant', content: longTurn('the-guard-challenges-you') },
+    { role: 'user', content: longTurn('bribed-the-guard') },
+    { role: 'assistant', content: longTurn('entered-the-keep') },
+    { role: 'user', content: longTurn('found-the-throne-room') },
+    { role: 'assistant', content: longTurn('the-usurper-king-speaks') },
+    { role: 'user', content: 'I draw my sword.' },
+    { role: 'assistant', content: 'Steel rings out across the hall.' },
+    { role: 'user', content: 'What does the king do?' },
+  ];
+
+  const estTokens = (history: ChatMessage[]): number =>
+    history.reduce((sum, m) => {
+      const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+      return sum + Math.ceil(c.length / 4);
+    }, 0);
+
+  it('condenses an over-budget history under budget with a recap (not hard truncation)', () => {
+    const history = overBudgetHistory();
+    const maxTokens = 2000;
+
+    // Sanity: the fixture really does exceed the budget.
+    expect(estTokens(history)).toBeGreaterThan(maxTokens);
+
+    const result = trimHistory(history, maxTokens);
+
+    // Under budget.
+    expect(estTokens(result)).toBeLessThanOrEqual(maxTokens);
+
+    // A recap is present (condensed, not dropped).
+    const recap = result.find((m) => m.content.includes('[Earlier this session'));
+    expect(recap).toBeDefined();
+
+    // System preserved verbatim at the head, and the most-recent message survives.
+    expect(result[0]).toEqual(history[0]);
+    expect(result[result.length - 1]).toEqual(history[history.length - 1]);
+
+    // It must NOT use the old destructive truncation marker.
+    const usedOldTruncation = result.some((m) =>
+      m.content.includes('[...truncated due to token limit]')
+    );
+    expect(usedOldTruncation).toBe(false);
+  });
+
+  it('returns an under-budget history unchanged', () => {
+    const history: ChatMessage[] = [
+      { role: 'system', content: 'You are the DM.' },
+      { role: 'user', content: 'Hello.' },
+      { role: 'assistant', content: 'Welcome, adventurer.' },
+    ];
+    expect(trimHistory(history, 100000)).toEqual(history);
   });
 });

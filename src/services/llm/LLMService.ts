@@ -8,6 +8,7 @@ import { parseMcpResponse, extractEmbeddedStateJson } from '../../utils/mcpUtils
 import { formatCombatToolResponse } from '../../utils/toolResponseFormatter';
 import { tools, getLocalTools, executeLocalTool } from '../toolRegistry';
 import { buildSystemPrompt, ContextOptions } from './contextBuilder';
+import { condenseHistory } from './contextCondenser';
 
 // Combat tools from rpg-mcp that should trigger combat state sync
 const COMBAT_TOOLS = new Set([
@@ -367,6 +368,10 @@ class LLMService {
 
         // Max 25 turns to allow extensive tool usage while preventing infinite loops
         for (let turn = 0; turn < 25; turn++) {
+            // Re-condense each turn: tool results accumulate into currentHistory across
+            // turns, so the single pre-loop trim isn't enough to keep EVERY provider call
+            // in budget. trimHistory/condenseHistory is a no-op when already under budget.
+            currentHistory = this.trimHistory(currentHistory);
             console.log(`[LLMService] Turn ${turn + 1}`);
             const response: LLMResponse = await provider.sendMessage(currentHistory, apiKey, model, allTools);
 
@@ -468,6 +473,9 @@ class LLMService {
             let continueLoop = true;
 
             while (continueLoop && turnCount < MAX_TOOL_TURNS) {
+                // Re-condense each turn: accumulated tool results can push currentHistory
+                // back over budget mid-loop; keep every provider call in budget.
+                currentHistory = this.trimHistory(currentHistory);
                 continueLoop = false; // Will be set to true if tool calls are received
 
                 // FIX: Track async tool handling so we can await it before resolving
@@ -696,65 +704,28 @@ class LLMService {
         return Math.ceil(text.length / 4);
     }
 
+    /** Most-recent turns the condenser always preserves verbatim (priority context). */
+    private readonly RECENT_TURNS_TO_KEEP = 6;
+
     /**
-     * Trim history to stay under token budget
-     * Preserves system message, removes oldest messages first
+     * Enforce the conversation token budget.
+     *
+     * Phase 5: delegates to the deterministic context CONDENSER instead of the old
+     * destructive oldest-first truncator. Evicted oldest turns are summarized into ONE
+     * compact, non-authoritative recap (DB-backed game state is still reloaded via
+     * tools — the recap is narrative continuity only). The condenser preserves a
+     * leading system message verbatim, keeps the most-recent turns verbatim, never
+     * splits an assistant tool_use from its tool_result (provider-validity invariant),
+     * and guarantees the result fits `maxTokens`.
+     *
+     * Signature and call shape are unchanged so callers stay untouched.
      */
     private trimHistory(history: ChatMessage[], maxTokens: number = 100000): ChatMessage[] {
-        // Calculate current token usage
-        let totalTokens = 0;
-        const tokenCounts: number[] = [];
-        
-        for (const msg of history) {
-            const content = typeof msg.content === 'string' 
-                ? msg.content 
-                : JSON.stringify(msg.content);
-            const tokens = this.estimateTokens(content);
-            tokenCounts.push(tokens);
-            totalTokens += tokens;
-        }
-        
-        // If under budget, return as-is
-        if (totalTokens <= maxTokens) {
-            console.log(`[LLMService] History within budget: ~${totalTokens} tokens`);
-            return history;
-        }
-        
-        console.warn(`[LLMService] History exceeds budget: ~${totalTokens} tokens > ${maxTokens}. Trimming...`);
-        
-        // Keep system message if present
-        const hasSystem = history.length > 0 && history[0].role === 'system';
-        const systemMsg = hasSystem ? [history[0]] : [];
-        const systemTokens = hasSystem ? tokenCounts[0] : 0;
-        
-        // Trim from the start (oldest), keeping most recent messages
-        let remainingBudget = maxTokens - systemTokens;
-        const trimmedNonSystem: ChatMessage[] = [];
-        
-        // Walk backwards from end to preserve recent context
-        for (let i = history.length - 1; i >= (hasSystem ? 1 : 0); i--) {
-            if (tokenCounts[i] <= remainingBudget) {
-                trimmedNonSystem.unshift(history[i]);
-                remainingBudget -= tokenCounts[i];
-            } else {
-                // If a single message is too large, truncate its content
-                const msg = history[i];
-                const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-                const truncatedContent = content.slice(0, remainingBudget * 4) + '\n\n[...truncated due to token limit]';
-                trimmedNonSystem.unshift({ ...msg, content: truncatedContent });
-                break;
-            }
-        }
-        
-        const result = [...systemMsg, ...trimmedNonSystem];
-        const newTotal = result.reduce((sum, msg) => {
-            const c = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-            return sum + this.estimateTokens(c);
-        }, 0);
-        
-        console.log(`[LLMService] Trimmed history: ~${totalTokens} → ~${newTotal} tokens (removed ${history.length - result.length} messages)`);
-        
-        return result;
+        return condenseHistory(history, {
+            maxTokens,
+            recentTurnsToKeep: this.RECENT_TURNS_TO_KEEP,
+            estimateTokens: this.estimateTokens.bind(this),
+        });
     }
 
     /**
