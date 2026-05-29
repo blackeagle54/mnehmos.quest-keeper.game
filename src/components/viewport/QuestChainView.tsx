@@ -179,7 +179,7 @@ export const QuestChainView: React.FC = () => {
     );
   }
 
-  const graphs = characterChains ? Object.values(characterChains) : [];
+  const graphs = characterChains ? Object.entries(characterChains) : [];
 
   return (
     <div className="h-full w-full overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-terminal-green/20 scrollbar-track-transparent">
@@ -210,15 +210,14 @@ export const QuestChainView: React.FC = () => {
       )}
 
       <div className="space-y-8">
-        {graphs.map((graph, index) => {
-          // Multiple chainId-less graphs must not collide on a shared key; fall
-          // back to the first quest id, then the index, so each section is
-          // stable and unique.
-          const key = graph.chainId ?? graph.quests?.[0]?.id ?? `chain-${index}`;
+        {graphs.map(([chainKey, graph]) => {
+          // Key on the store's own map key (the chainId the store keyed this graph
+          // under) — unique + stable by construction, so chainId-less graphs (even
+          // ones whose quests[0].id collides) can never produce a duplicate React key.
           // A branch point is "reachable" once its source quest is completed by
           // this character (mirrors the engine's select_branch precondition).
           return (
-            <section key={key} data-testid="chain-section">
+            <section key={chainKey} data-testid="chain-section">
               <h3 className="text-lg font-bold uppercase tracking-wider text-terminal-green/80 mb-3">
                 {graph.chainId ?? 'Quest'}
               </h3>

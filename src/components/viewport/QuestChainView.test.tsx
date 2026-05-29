@@ -168,21 +168,32 @@ describe('QuestChainView', () => {
     expect(screen.queryByText(/Diplomacy Lv3/i)).not.toBeInTheDocument();
   });
 
-  it('renders chainId-less graphs with unique keys (no key collision)', () => {
-    // Two graphs without a chainId would have collided on the old shared
-    // 'singleton' key; with the index/quest-id fallback they render distinctly.
+  it('renders chainId-less graphs without a duplicate-key warning even when quest ids collide', () => {
+    // Both graphs lack a chainId AND share the same quests[0].id, so a key derived
+    // from chainId/quest-id alone would collide; only the store's own map key
+    // disambiguates. The view must render both sections AND emit no React
+    // duplicate-key warning (which surfaces via console.error).
     const g1 = sampleGraph();
     const g2 = sampleGraph();
     delete (g1 as any).chainId;
     delete (g2 as any).chainId;
-    g2.quests = g2.quests.map((q) => ({ ...q, id: `${q.id}-2`, name: `${q.name} II` }));
+    // g2 deliberately keeps g1's quest ids (collision).
     chainStoreState.chainsByCharacter = {
       'char-1': { 'graph-1': g1, 'graph-2': g2 },
     };
 
-    const { container } = render(<QuestChainView />);
-    expect(container.querySelectorAll('[data-testid="chain-section"]')).toHaveLength(2);
-    expect(screen.getByText('The Beginning')).toBeInTheDocument();
-    expect(screen.getByText('The Beginning II')).toBeInTheDocument();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { container } = render(<QuestChainView />);
+      expect(container.querySelectorAll('[data-testid="chain-section"]')).toHaveLength(2);
+      const keyWarnings = errorSpy.mock.calls.filter((callArgs) =>
+        callArgs.some(
+          (a) => typeof a === 'string' && /key/i.test(a) && /(same|duplicate|unique)/i.test(a)
+        )
+      );
+      expect(keyWarnings).toHaveLength(0);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
