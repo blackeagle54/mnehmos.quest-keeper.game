@@ -132,5 +132,50 @@ describe('notesStore.importNotes (dedup by id)', () => {
 
       expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
     });
+
+    // The notes payload comes straight off an untrusted .qksave; if it is not an
+    // array at all (e.g. an object or null where an array was expected), iterating
+    // it would throw a raw TypeError or silently misbehave. Guard explicitly,
+    // BEFORE any mutation, with a clear message.
+    it('throws when the argument is NOT an array, leaving the store unchanged', () => {
+      useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+      for (const bad of [null, undefined, {}, 'nope', 42] as any[]) {
+        expect(() => useNotesStore.getState().importNotes(bad)).toThrow(
+          /notes payload must be an array/
+        );
+      }
+
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+    });
+
+    // Beyond `id` (the dedup key), the queries (searchNotes/getNotesByTag) read
+    // title/content/tags directly and would crash on a structurally-incomplete
+    // note. Validate the required structural fields up front so a malformed entry
+    // is rejected before it can poison the store.
+    it('throws and leaves the store unchanged when a note is missing required string fields', () => {
+      useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          makeNote({ id: 'ok' }),
+          { id: 'n2', content: 'has no title' } as any,
+        ])
+      ).toThrow(/notes payload contains invalid note entries/);
+
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+    });
+
+    it('throws when a note is missing its tags array', () => {
+      useNotesStore.setState({ notes: [] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          { id: 'n1', title: 't', content: 'c' } as any,
+        ])
+      ).toThrow(/notes payload contains invalid note entries/);
+
+      expect(useNotesStore.getState().notes).toHaveLength(0);
+    });
   });
 });

@@ -126,17 +126,33 @@ export const useNotesStore = create<NotesState>()(
       },
 
       importNotes: (notes) => {
-        // Validate shape FIRST (a .qksave is untrusted input). Every entry must
-        // be a non-null object carrying a string `id` — the id is the dedup key
-        // and downstream queries assume the Note shape. Throw BEFORE any
+        // Validate shape FIRST (a .qksave is untrusted input). Throw BEFORE any
         // dedup/mutation so a malformed payload leaves the store untouched
         // (no-clobber); the caller (importCampaignFromFile) runs this before the
         // session upsert, so a bad notes array aborts the whole restore cleanly.
+
+        // The payload itself must be an array — anything else (object, null,
+        // string, number) would make the for…of below throw a raw TypeError, or
+        // (for a string) iterate characters. Guard it explicitly.
+        if (!Array.isArray(notes)) {
+          throw new Error('Invalid save file: notes payload must be an array');
+        }
+
+        // Every entry must be a non-null object carrying the REQUIRED structural
+        // Note fields: a string `id` (the dedup key) plus the fields the queries
+        // read directly — title/content (searchNotes) and a tags array
+        // (getNotesByTag/searchNotes). A note missing any of these would crash a
+        // downstream query, so reject it here rather than poison the store.
+        // (Optional fields like characterId/pinned are intentionally not checked.)
         for (const note of notes) {
+          const n = note as unknown as Record<string, unknown> | null;
           if (
-            note === null ||
-            typeof note !== 'object' ||
-            typeof (note as { id?: unknown }).id !== 'string'
+            n === null ||
+            typeof n !== 'object' ||
+            typeof n.id !== 'string' ||
+            typeof n.title !== 'string' ||
+            typeof n.content !== 'string' ||
+            !Array.isArray(n.tags)
           ) {
             throw new Error('Invalid save file: notes payload contains invalid note entries');
           }

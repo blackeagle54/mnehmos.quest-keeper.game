@@ -149,11 +149,12 @@ function validateSaveBundle(parsed: unknown): CampaignSaveBundle {
   }
   // sessionMeta.{id,name,worldId} feed downstream store mutations (session
   // upsert/switch) and the engine import worldId, so a missing/empty value
-  // would corrupt or mis-route the restore. Require non-empty strings here,
-  // BEFORE the engine import or any store mutation runs.
+  // would corrupt or mis-route the restore. Require non-blank strings here
+  // (whitespace-only is treated as empty), BEFORE the engine import or any
+  // store mutation runs.
   const meta = b.sessionMeta as Record<string, unknown>;
   for (const field of ['id', 'name', 'worldId'] as const) {
-    if (typeof meta[field] !== 'string' || (meta[field] as string).length === 0) {
+    if (typeof meta[field] !== 'string' || (meta[field] as string).trim().length === 0) {
       throw new Error(`Invalid save file: sessionMeta.${field} is required`);
     }
   }
@@ -293,7 +294,14 @@ export async function listSaveFiles(): Promise<SaveFileEntry[]> {
   }
 
   return entries
-    .filter((e) => e?.isFile && typeof e.name === 'string' && e.name.endsWith(SAVE_EXTENSION))
+    .filter(
+      (e) =>
+        e?.isFile &&
+        typeof e.name === 'string' &&
+        // Match the extension case-insensitively so a `.QKSAVE`/mixed-case file
+        // (e.g. copied from another OS) is not silently hidden from the list.
+        e.name.toLowerCase().endsWith(SAVE_EXTENSION)
+    )
     .map((e) => ({ name: e.name, path: `${savesDir}/${e.name}` }));
 }
 

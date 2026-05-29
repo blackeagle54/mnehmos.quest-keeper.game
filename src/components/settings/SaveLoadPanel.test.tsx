@@ -83,6 +83,29 @@ describe('SaveLoadPanel', () => {
     });
   });
 
+  it('keeps the save-success message visible when the list is already shown (refresh does not wipe it)', async () => {
+    render(<SaveLoadPanel />);
+
+    // Show the list first so handleSave triggers an auto-refresh.
+    fireEvent.click(screen.getByTestId('refresh-saves-button'));
+    await waitFor(() => {
+      expect(screen.getAllByTestId('save-file-entry')).toHaveLength(2);
+    });
+
+    // Now save — the auto-refresh must NOT clobber the "Saved campaign to …" status.
+    fireEvent.click(screen.getByTestId('save-campaign-button'));
+
+    await waitFor(() => {
+      expect(exportActiveCampaignToFile).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(listSaveFiles).toHaveBeenCalledTimes(2); // initial show + post-save refresh
+    });
+
+    // The success message survives the refresh.
+    expect(screen.getByTestId('save-load-status')).toHaveTextContent(/the-ironwood-saga\.qksave/);
+  });
+
   it('lists the available .qksave files', async () => {
     render(<SaveLoadPanel />);
     fireEvent.click(screen.getByTestId('refresh-saves-button'));

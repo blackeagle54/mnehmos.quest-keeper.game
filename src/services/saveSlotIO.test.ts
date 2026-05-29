@@ -361,6 +361,20 @@ describe('listSaveFiles', () => {
     expect(files[0].path).toBe('/mock/app/data/saves/alpha.qksave');
   });
 
+  it('lists files with a mixed-case extension (case-insensitive .qksave filter)', async () => {
+    readDir.mockResolvedValueOnce([
+      { name: 'Campaign.QKSAVE', isFile: true, isDirectory: false },
+      { name: 'lower.qksave', isFile: true, isDirectory: false },
+      { name: 'Mixed.QkSave', isFile: true, isDirectory: false },
+      { name: 'notes.txt', isFile: true, isDirectory: false },
+    ]);
+
+    const files = await listSaveFiles();
+
+    const names = files.map((f) => f.name).sort();
+    expect(names).toEqual(['Campaign.QKSAVE', 'Mixed.QkSave', 'lower.qksave']);
+  });
+
   it('returns an empty list (no throw) when the saves dir does not exist yet', async () => {
     readDir.mockRejectedValueOnce(new Error('ENOENT'));
 
@@ -494,6 +508,22 @@ describe('importCampaignFromFile (no-clobber)', () => {
       expect(callTool).not.toHaveBeenCalled();
       expect(importNotes).not.toHaveBeenCalled();
       expect(switchSession).not.toHaveBeenCalled();
+    });
+
+    it(`REJECTS a bundle whose sessionMeta.${field} is whitespace-only (no import / no mutation)`, async () => {
+      const bad = validSaveFileBundle();
+      (bad.sessionMeta as any)[field] = '   ';
+      readTextFile.mockResolvedValueOnce(JSON.stringify(bad));
+
+      await expect(
+        importCampaignFromFile('/mock/app/data/saves/wsmeta.qksave')
+      ).rejects.toThrow(new RegExp(`sessionMeta\\.${field} is required`));
+
+      expect(callTool).not.toHaveBeenCalled();
+      expect(importNotes).not.toHaveBeenCalled();
+      expect(switchSession).not.toHaveBeenCalled();
+      expect(createSession).not.toHaveBeenCalled();
+      expect(updateSession).not.toHaveBeenCalled();
     });
   }
 

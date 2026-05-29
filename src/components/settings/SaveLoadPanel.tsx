@@ -39,8 +39,10 @@ export const SaveLoadPanel: React.FC = () => {
       const path = await exportActiveCampaignToFile();
       const name = path.split(/[/\\]/).pop() || path;
       setStatus({ kind: 'ok', text: `Saved campaign to ${name}` });
-      // Refresh the list if it is already shown so the new file appears.
-      if (listed) await refresh();
+      // Refresh the list if it is already shown so the new file appears — but
+      // keep the "Saved campaign to …" message (refresh's default clear would
+      // otherwise wipe the save confirmation the player just earned).
+      if (listed) await refresh({ clearStatus: false });
     } catch (err) {
       setStatus({ kind: 'error', text: messageOf(err, 'Failed to save campaign') });
     } finally {
@@ -48,14 +50,15 @@ export const SaveLoadPanel: React.FC = () => {
     }
   };
 
-  const refresh = async () => {
+  const refresh = async (opts?: { clearStatus?: boolean }) => {
+    const clearStatus = opts?.clearStatus ?? true;
     setBusy(true);
-    setStatus(null);
+    if (clearStatus) setStatus(null);
     try {
       const entries = await listSaveFiles();
       setFiles(entries);
       setListed(true);
-      if (entries.length === 0) {
+      if (clearStatus && entries.length === 0) {
         setStatus({ kind: 'ok', text: 'No save files yet.' });
       }
     } catch (err) {
@@ -95,7 +98,7 @@ export const SaveLoadPanel: React.FC = () => {
         </button>
         <button
           data-testid="refresh-saves-button"
-          onClick={refresh}
+          onClick={() => refresh()}
           disabled={busy}
           className="flex-1 rounded border border-terminal-green bg-black/50 px-4 py-2 font-mono text-sm text-terminal-green transition-colors hover:bg-terminal-green/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
           title="List saved campaign files"
