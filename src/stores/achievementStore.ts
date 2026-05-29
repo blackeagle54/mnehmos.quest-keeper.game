@@ -180,7 +180,12 @@ const ACTION_SHAPE_GUARDS: Record<
   // The per-character mutators all echo the achievementId they acted on.
   unlock: (d) => typeof d.achievementId === 'string' && d.achievementId.length > 0,
   progress: (d) => typeof d.achievementId === 'string' && d.achievementId.length > 0,
-  revoke: (d) => typeof d.achievementId === 'string' && d.achievementId.length > 0,
+  // revoke must echo a boolean `revoked` — a missing field is malformed, not an
+  // implicit success (keeps revoke pessimistic, like unlock/progress).
+  revoke: (d) =>
+    typeof d.achievementId === 'string' &&
+    d.achievementId.length > 0 &&
+    typeof d.revoked === 'boolean',
 };
 
 /**
@@ -589,7 +594,10 @@ export const useAchievementStore = create<AchievementState>()(
           const state = get();
           const entry = state.achievementsByCharacter[characterId];
           const local = entry?.catalog.find((a) => a.id === achievementId);
-          const engineRevoked = data?.revoked !== false;
+          // Pessimistic, mirroring alreadyUnlocked/justUnlocked (=== true): only a
+          // boolean true is a confirmed revoke. (The shape guard already ensures
+          // `revoked` is a boolean here; this stays consistent with siblings.)
+          const engineRevoked = data?.revoked === true;
           const canFastPatch = !!entry && !!local && engineRevoked;
 
           if (!canFastPatch) {

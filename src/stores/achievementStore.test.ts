@@ -473,6 +473,45 @@ describe('achievementStore', () => {
       expect(entry.unlockedCount).toBe(0);
       expect(entry.totalPoints).toBe(0);
     });
+
+    it('does NOT clobber state when a revoke payload omits the revoked field (malformed)', async () => {
+      useAchievementStore.setState({
+        achievementsByCharacter: {
+          'char-1': {
+            catalog: sampleCatalog(),
+            totalCount: 2,
+            unlockedCount: 1,
+            totalPoints: 10,
+            characterName: 'Aria',
+          } as any,
+        },
+      });
+
+      // Malformed: achievementId present but no boolean `revoked`. Sibling mutators
+      // (unlock/progress) are pessimistic (=== true); revoke must be too, so a
+      // missing field is rejected by the shape guard rather than optimistically
+      // marking the achievement revoked.
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'revoke',
+          characterId: 'char-1',
+          achievementId: 'first-blood',
+        })
+      );
+
+      await useAchievementStore.getState().revoke('char-1', 'first-blood');
+
+      // Rejected at the guard → no follow-up reconcile sync (list/get) fired.
+      expect(callTool).toHaveBeenCalledTimes(1);
+      const entry = useAchievementStore.getState().achievementsByCharacter['char-1'];
+      const fb = entry.catalog.find((a) => a.id === 'first-blood');
+      // State left intact: still unlocked, counts unchanged, error surfaced.
+      expect(fb?.unlocked).toBe(true);
+      expect(entry.unlockedCount).toBe(1);
+      expect(entry.totalPoints).toBe(10);
+      expect(useAchievementStore.getState().error).toBeTruthy();
+    });
   });
 
   describe('define', () => {
