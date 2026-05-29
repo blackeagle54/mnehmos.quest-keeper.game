@@ -5,6 +5,7 @@ import { BattlemapCanvas } from '../viewport/BattlemapCanvas';
 import { WorldMapCanvas } from '../viewport/WorldMapCanvas';
 import { NpcJournalView } from '../viewport/NpcJournalView';
 import { CharacterSheetView } from '../viewport/CharacterSheetView';
+import { SkillsView } from '../viewport/SkillsView';
 import { SettingsView } from '../viewport/SettingsView';
 
 import { useTheme } from '../../context/ThemeContext';
@@ -29,6 +30,8 @@ export const MainViewport: React.FC<MainViewportProps> = ({ className }) => {
         return <WorldMapCanvas />;
       case 'journal':
         return <NpcJournalView />;
+      case 'skills':
+        return <SkillsView />;
       case 'settings':
         return <SettingsView />;
       default:

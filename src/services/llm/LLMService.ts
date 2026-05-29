@@ -37,7 +37,8 @@ const GAME_STATE_TOOLS = new Set([
     'unequip_item',
     'assign_quest',
     'complete_quest',
-    'update_objective'
+    'update_objective',
+    'skill_manage'
 ]);
 
 class LLMService {
