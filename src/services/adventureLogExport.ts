@@ -53,8 +53,10 @@ const PLAYER_LABEL = '**Player:**';
 const DM_LABEL = '**DM:**';
 
 /**
- * Map a message sender to its transcript label. Unknown/system senders map to
- * a neutral "System" label and are only emitted when they carry real content.
+ * Map a story-turn sender to its transcript label. Only 'user' and 'ai' can
+ * reach rendering (see `isRenderableTurn`), so the switch is exhaustive over
+ * the renderable senders. The `default` re-asserts that contract at runtime
+ * rather than silently inventing a label for an unexpected sender.
  */
 function labelForSender(sender: Message['sender']): string {
   switch (sender) {
@@ -63,18 +65,21 @@ function labelForSender(sender: Message['sender']): string {
     case 'ai':
       return DM_LABEL;
     default:
-      return '**System:**';
+      // Unreachable: non-user/ai senders are filtered out before rendering.
+      throw new Error(`Unrenderable sender reached renderTurn: ${sender}`);
   }
 }
 
 /**
- * Decide whether a message contributes a transcript block. Tool-call messages
- * and empty/system noise are collapsed out so the log reads like prose rather
- * than a debug dump.
+ * Decide whether a message contributes a transcript block. The adventure-log
+ * transcript is Player/DM story turns ONLY: tool calls, engine/UI errors, and
+ * system/unknown senders are dropped so the log reads like prose rather than a
+ * debug dump or a leak of non-story messages.
  */
 function isRenderableTurn(m: Message): boolean {
   if (m.isToolCall) return false; // collapse raw tool calls
   if (m.type === 'error') return false; // engine/UI errors are not story
+  if (m.sender !== 'user' && m.sender !== 'ai') return false; // omit system/unknown senders
   const content = (m.content ?? '').trim();
   return content.length > 0;
 }

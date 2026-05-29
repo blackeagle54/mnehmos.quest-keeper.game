@@ -182,6 +182,65 @@ describe('buildAdventureLogMarkdown', () => {
     expect(md).toContain('You hit!');
     expect(md).not.toContain('"sides"');
   });
+
+  it('omits system/non-story senders even when they carry content', () => {
+    const md = buildAdventureLogMarkdown({
+      sessionName: 'Campaign',
+      messages: [
+        msg({ id: 'a', sender: 'user', content: 'I look around.' }),
+        msg({
+          id: 's',
+          sender: 'system',
+          content: 'Session restored from save slot 2.',
+        }),
+        msg({ id: 'b', sender: 'ai', content: 'You see a torchlit hall.' }),
+      ],
+      generatedAt: FIXED_TS,
+    });
+    // The transcript is Player/DM story turns ONLY.
+    expect(md).toContain('I look around.');
+    expect(md).toContain('You see a torchlit hall.');
+    // The system message is dropped entirely — no content, no System label.
+    expect(md).not.toContain('Session restored from save slot 2.');
+    expect(md).not.toContain('**System:**');
+  });
+
+  it('keeps Player/DM mapping for a user+ai pair', () => {
+    const md = buildAdventureLogMarkdown({
+      sessionName: 'Campaign',
+      messages: [
+        msg({ id: 'a', sender: 'user', content: 'I greet the guard.' }),
+        msg({ id: 'b', sender: 'ai', content: 'The guard nods.' }),
+      ],
+      generatedAt: FIXED_TS,
+    });
+    expect(md).toContain('**Player:**');
+    expect(md).toContain('I greet the guard.');
+    expect(md).toContain('**DM:**');
+    expect(md).toContain('The guard nods.');
+  });
+
+  it('renders _No transcript yet._ when only system/tool/error messages exist', () => {
+    const md = buildAdventureLogMarkdown({
+      sessionName: 'Campaign',
+      messages: [
+        msg({ id: 's', sender: 'system', content: 'Save loaded.' }),
+        msg({
+          id: 'tool',
+          sender: 'ai',
+          content: '',
+          isToolCall: true,
+          toolName: 'roll_dice',
+        }),
+        msg({ id: 'e', sender: 'ai', type: 'error', content: 'Engine failure.' }),
+      ],
+      generatedAt: FIXED_TS,
+    });
+    expect(md.toLowerCase()).toContain('no transcript');
+    expect(md).not.toContain('Save loaded.');
+    expect(md).not.toContain('Engine failure.');
+    expect(md).not.toContain('**System:**');
+  });
 });
 
 describe('exportAdventureLogToFile', () => {
