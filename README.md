@@ -326,7 +326,7 @@ The unified `rpg-mcp-server` binary is bundled in `src-tauri/binaries/`. It prov
 
 ## 🎯 Development Status
 
-**Overall Progress: ~85% Complete** | Phases 1-4 ✅ | Phase 5 🔧 | Phase 6 ⬜
+**Overall Progress: ~78% Complete** | Phases 1-4 ✅ | Phase 5 🔧 | Phase 6 ⬜
 
 ### ✅ Phase 1: Core Systems (Complete)
 
