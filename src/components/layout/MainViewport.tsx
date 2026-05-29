@@ -6,6 +6,7 @@ import { WorldMapCanvas } from '../viewport/WorldMapCanvas';
 import { NpcJournalView } from '../viewport/NpcJournalView';
 import { CharacterSheetView } from '../viewport/CharacterSheetView';
 import { SkillsView } from '../viewport/SkillsView';
+import { QuestChainView } from '../viewport/QuestChainView';
 import { SettingsView } from '../viewport/SettingsView';
 
 import { useTheme } from '../../context/ThemeContext';
@@ -32,6 +33,8 @@ export const MainViewport: React.FC<MainViewportProps> = ({ className }) => {
         return <NpcJournalView />;
       case 'skills':
         return <SkillsView />;
+      case 'chains':
+        return <QuestChainView />;
       case 'settings':
         return <SettingsView />;
       default:
