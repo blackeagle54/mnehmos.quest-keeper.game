@@ -88,6 +88,48 @@ describe('skillStore', () => {
       expect(skills.combat).toEqual({ xp: 0, level: 1 });
       expect(useSkillStore.getState().isLoading).toBe(false);
     });
+
+    it('sets error and does NOT clobber a populated map when the payload has no SKILL_MANAGE_JSON block', async () => {
+      // Seed a previously-populated, valid map with non-default values.
+      const populated = freshSkills();
+      populated.combat = { xp: 5000, level: 30 };
+      useSkillStore.setState({ skillsByCharacter: { 'char-1': populated as any } });
+
+      // Response text has NO embedded SKILL_MANAGE_JSON block -> extract returns null.
+      callTool.mockResolvedValueOnce({
+        content: [{ type: 'text', text: 'Some markdown with no embedded payload at all.' }],
+      });
+
+      await useSkillStore.getState().syncSkills('char-1');
+
+      const s = useSkillStore.getState();
+      // Error surfaced, isLoading cleared.
+      expect(s.error).toBeTruthy();
+      expect(s.isLoading).toBe(false);
+      // The previously-populated map was NOT overwritten with defaults.
+      expect(s.skillsByCharacter['char-1'].combat).toEqual({ xp: 5000, level: 30 });
+    });
+
+    it('sets error and does NOT clobber a populated map when the payload is success:false', async () => {
+      const populated = freshSkills();
+      populated.magic = { xp: 1234, level: 12 };
+      useSkillStore.setState({ skillsByCharacter: { 'char-1': populated as any } });
+
+      callTool.mockResolvedValueOnce(
+        wrapSkillResponse({
+          success: false,
+          actionType: 'get_skills',
+          characterId: 'char-1',
+        })
+      );
+
+      await useSkillStore.getState().syncSkills('char-1');
+
+      const s = useSkillStore.getState();
+      expect(s.error).toBeTruthy();
+      expect(s.isLoading).toBe(false);
+      expect(s.skillsByCharacter['char-1'].magic).toEqual({ xp: 1234, level: 12 });
+    });
   });
 
   describe('grantXp', () => {
@@ -120,6 +162,48 @@ describe('skillStore', () => {
       const skills = useSkillStore.getState().skillsByCharacter['char-1'];
       expect(skills.combat).toEqual({ xp: 100, level: 2 });
       expect(useSkillStore.getState().lastResult?.leveledUp).toBe(true);
+    });
+
+    it('sets error and does NOT corrupt state on a success:false payload', async () => {
+      const populated = freshSkills();
+      populated.combat = { xp: 4000, level: 25 };
+      useSkillStore.setState({ skillsByCharacter: { 'char-1': populated as any } });
+
+      callTool.mockResolvedValueOnce(
+        wrapSkillResponse({
+          success: false,
+          actionType: 'grant_xp',
+          characterId: 'char-1',
+          skill: 'combat',
+        })
+      );
+
+      await useSkillStore.getState().grantXp('char-1', 'combat', 50);
+
+      const s = useSkillStore.getState();
+      expect(s.error).toBeTruthy();
+      expect(s.isLoading).toBe(false);
+      // Existing skill untouched, lastResult not set to the bad payload.
+      expect(s.skillsByCharacter['char-1'].combat).toEqual({ xp: 4000, level: 25 });
+      expect(s.lastResult).toBeNull();
+    });
+
+    it('sets error and does NOT corrupt state on an unparseable payload', async () => {
+      const populated = freshSkills();
+      populated.combat = { xp: 4000, level: 25 };
+      useSkillStore.setState({ skillsByCharacter: { 'char-1': populated as any } });
+
+      callTool.mockResolvedValueOnce({
+        content: [{ type: 'text', text: 'No embedded payload here.' }],
+      });
+
+      await useSkillStore.getState().grantXp('char-1', 'combat', 50);
+
+      const s = useSkillStore.getState();
+      expect(s.error).toBeTruthy();
+      expect(s.isLoading).toBe(false);
+      expect(s.skillsByCharacter['char-1'].combat).toEqual({ xp: 4000, level: 25 });
+      expect(s.lastResult).toBeNull();
     });
   });
 

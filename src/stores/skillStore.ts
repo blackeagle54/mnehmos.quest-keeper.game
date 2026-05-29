@@ -112,6 +112,27 @@ function parseSkillResponse(result: any): SkillManageResult | null {
   return extractEmbeddedJson<SkillManageResult>(text, 'SKILL_MANAGE_JSON');
 }
 
+/**
+ * Decide whether a returned-but-bad skill_manage payload should be treated as a
+ * failure BEFORE any state mutation. A payload is bad when:
+ *   - it failed to parse / has no embedded block (`data` is null/undefined), or
+ *   - it carries an explicit error envelope (`error` truthy), or
+ *   - it reports `success === false`.
+ * Returns a meaningful error string when the payload is a failure, else null.
+ *
+ * Treating these as failures keeps a valid, already-populated skills map from
+ * being clobbered with defaults (syncSkills) or silently no-op'd (the others).
+ */
+function skillPayloadFailure(
+  data: SkillManageResult | null | undefined,
+  fallback: string
+): string | null {
+  if (data == null) return fallback;
+  if (data.error) return data.message || fallback;
+  if (data.success === false) return data.message || fallback;
+  return null;
+}
+
 /** Coerce an unknown thrown value (callTool rejects with the JSON-RPC error). */
 function toErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err) {
@@ -156,8 +177,12 @@ export const useSkillStore = create<SkillState>()(
           });
           const data = parseSkillResponse(result);
 
-          if (data?.error) {
-            set({ error: data.message || 'Failed to load skills' });
+          // Treat a null-parse / error-envelope / success:false payload as a
+          // failure BEFORE touching state — never overwrite a valid, populated
+          // skills map with defaults on a bad sync.
+          const failure = skillPayloadFailure(data, 'Failed to load skills');
+          if (failure) {
+            set({ error: failure });
             return;
           }
 
@@ -188,8 +213,11 @@ export const useSkillStore = create<SkillState>()(
           });
           const data = parseSkillResponse(result);
 
-          if (data?.error) {
-            set({ error: data.message || 'Failed to grant XP' });
+          // Treat a null-parse / error-envelope / success:false payload as a
+          // failure BEFORE touching state — never silently no-op on bad data.
+          const failure = skillPayloadFailure(data, 'Failed to grant XP');
+          if (failure) {
+            set({ error: failure });
             return;
           }
 
@@ -225,8 +253,11 @@ export const useSkillStore = create<SkillState>()(
           });
           const data = parseSkillResponse(result);
 
-          if (data?.error) {
-            set({ error: data.message || 'Failed to set level' });
+          // Treat a null-parse / error-envelope / success:false payload as a
+          // failure BEFORE touching state — never silently no-op on bad data.
+          const failure = skillPayloadFailure(data, 'Failed to set level');
+          if (failure) {
+            set({ error: failure });
             return;
           }
 
@@ -261,9 +292,12 @@ export const useSkillStore = create<SkillState>()(
           });
           const data = parseSkillResponse(result);
 
-          if (data?.error) {
-            set({ error: data.message || 'Failed to check requirement' });
-            return data;
+          // Treat a null-parse / error-envelope / success:false payload as a
+          // failure BEFORE touching state — never set lastResult to bad data.
+          const failure = skillPayloadFailure(data, 'Failed to check requirement');
+          if (failure) {
+            set({ error: failure });
+            return data ?? null;
           }
 
           set({ lastResult: data });
