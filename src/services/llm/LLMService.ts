@@ -368,6 +368,10 @@ class LLMService {
 
         // Max 25 turns to allow extensive tool usage while preventing infinite loops
         for (let turn = 0; turn < 25; turn++) {
+            // Re-condense each turn: tool results accumulate into currentHistory across
+            // turns, so the single pre-loop trim isn't enough to keep EVERY provider call
+            // in budget. trimHistory/condenseHistory is a no-op when already under budget.
+            currentHistory = this.trimHistory(currentHistory);
             console.log(`[LLMService] Turn ${turn + 1}`);
             const response: LLMResponse = await provider.sendMessage(currentHistory, apiKey, model, allTools);
 
@@ -469,6 +473,9 @@ class LLMService {
             let continueLoop = true;
 
             while (continueLoop && turnCount < MAX_TOOL_TURNS) {
+                // Re-condense each turn: accumulated tool results can push currentHistory
+                // back over budget mid-loop; keep every provider call in budget.
+                currentHistory = this.trimHistory(currentHistory);
                 continueLoop = false; // Will be set to true if tool calls are received
 
                 // FIX: Track async tool handling so we can await it before resolving
