@@ -1,8 +1,8 @@
 # Quest Keeper AI - Development Plan
 
-**Version:** 2.1
-**Last Updated:** May 24, 2026
-**Status:** Active Development (Phase 4 Complete)
+**Version:** 2.2
+**Last Updated:** May 29, 2026
+**Status:** Active Development (Phase 3 & 4 Complete)
 
 ---
 
@@ -83,9 +83,9 @@ Quest Keeper AI combines:
 
 ---
 
-### Phase 3: Progression Systems (OSRS-Style) ⬜ NOT STARTED
+### Phase 3: Progression Systems (OSRS-Style) ✅ COMPLETE
 **Goal:** Deep, trackable character growth
-**Status:** Not Started - Next Priority
+**Status:** Complete (2026-05-29)
 
 **Components:**
 1. **Skill System**
@@ -109,10 +109,10 @@ Quest Keeper AI combines:
    - Faction conflicts
 
 **Deliverables:**
-1. ⬜ Skill schema and tools
-2. ⬜ Quest chain support
-3. ⬜ Achievement tracking
-4. ⬜ Faction system
+1. ✅ Skill schema and tools (engine `skill_manage`; SkillsView + skillStore)
+2. ✅ Quest chain support (engine `quest_manage` chains/branching; QuestChainView + questChainStore)
+3. ✅ Achievement tracking (engine `achievement_manage`; AchievementsView + achievementStore)
+4. ✅ Faction system (engine `reputation_manage`, standing tiers; ReputationView + reputationStore)
 
 ---
 
@@ -273,11 +273,11 @@ Phase 6: 40% effort (Workflow browser)
 - [x] Click POI → see details
 - [ ] Combat at POI → battlemap transition (partial - manual transition)
 
-### Phase 3 Complete When:
-- [ ] Skills track XP and level
-- [ ] Quest chains work (A unlocks B unlocks C)
-- [ ] Achievements trigger on milestones
-- [ ] Faction reputation affects interactions
+### Phase 3 Complete When: ✅ ACHIEVED
+- [x] Skills track XP and level
+- [x] Quest chains work (A unlocks B unlocks C)
+- [x] Achievements trigger on milestones
+- [x] Faction reputation affects interactions
 
 ---
 
@@ -297,8 +297,8 @@ Phase 6: 40% effort (Workflow browser)
 
 ### Immediate Priorities
 1. **Phase 5: Session Management** - Context condensing (highest-impact), save slots, export
-2. **Phase 3: Progression Systems** - Skill system (requires rpg-mcp schema + tools)
-   _(Phase 4 Enhanced Combat complete: combat log, click-to-move, AoE viz all shipped)_
+2. **Phase 6: Workflow Automation** - wire the frontend to the existing rpg-mcp `batch_manage` primitive
+   _(Phase 3 Progression complete 2026-05-29: skills, quest chains, achievements, factions/reputation — engine + UI. Phase 4 Enhanced Combat complete: combat log, click-to-move, AoE viz.)_
 
 ### Future Priorities
 1. **Context Condensing** - LLM token management for long sessions
@@ -327,4 +327,5 @@ Phase 6: 40% effort (Workflow browser)
 | Dec 2024 | 1.0 | Initial plan based on system reviews |
 | Dec 3, 2024 | 2.0 | Updated with implementation status - Phase 1 & 2 complete |
 | May 24, 2026 | 2.1 | Phase 4 Enhanced Combat complete — combat log, click-to-move, AoE visualization |
+| May 29, 2026 | 2.2 | Phase 3 Progression complete — skill_manage / quest chains / achievement_manage / reputation_manage (engine) + Skills/Chains/Achievements/Reputation tabs (UI) |
 

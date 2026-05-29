@@ -110,18 +110,17 @@ Quest Keeper AI bridges the gap with:
 - ✅ Notes system with categories, tags, and search
 - ✅ World environment (weather, time, moon phases)
 - ✅ Session persistence via Zustand
+- ✅ Interactive battlemap with click-to-move + combat log panel
+- ✅ Skill system with OSRS-style XP curves (Skills tab)
+- ✅ Quest chains with branching/unlock progression (Chains tab)
+- ✅ Achievement tracking (Achievements tab)
+- ✅ Faction reputation with standing tiers (Reputation tab)
 
-### 🔧 In Progress (Phases 4 & 5 Partial)
-- 🔧 Interactive battlemap (click-to-move pending)
-- 🔧 Combat log panel
+### 🔧 In Progress (Phase 5 Partial)
 - 🔧 Session export (Markdown/PDF)
 - 🔧 Context condensing for long sessions
 
-### ⬜ Planned (Phases 3 & 6)
-- ⬜ Skill system with OSRS-style XP curves
-- ⬜ Achievement tracking
-- ⬜ Faction reputation system
-- ⬜ Quest chains and prerequisites
+### ⬜ Planned (Phase 6 & beyond)
 - ⬜ Batch generation workflows
 - ⬜ Multiplayer foundation
 
