@@ -144,8 +144,18 @@ function validateSaveBundle(parsed: unknown): CampaignSaveBundle {
       `Unsupported save schemaVersion ${String(b.schemaVersion)} — this build reads schemaVersion ${SAVE_SCHEMA_VERSION}`
     );
   }
-  if (typeof b.sessionMeta !== 'object' || b.sessionMeta === null) {
+  if (typeof b.sessionMeta !== 'object' || b.sessionMeta === null || Array.isArray(b.sessionMeta)) {
     throw new Error('Invalid save file: missing sessionMeta');
+  }
+  // sessionMeta.{id,name,worldId} feed downstream store mutations (session
+  // upsert/switch) and the engine import worldId, so a missing/empty value
+  // would corrupt or mis-route the restore. Require non-empty strings here,
+  // BEFORE the engine import or any store mutation runs.
+  const meta = b.sessionMeta as Record<string, unknown>;
+  for (const field of ['id', 'name', 'worldId'] as const) {
+    if (typeof meta[field] !== 'string' || (meta[field] as string).length === 0) {
+      throw new Error(`Invalid save file: sessionMeta.${field} is required`);
+    }
   }
   if (typeof b.engine !== 'object' || b.engine === null || Array.isArray(b.engine)) {
     throw new Error('Invalid save file: missing engine bundle');
@@ -206,13 +216,19 @@ export async function buildCampaignBundle(
   const { useChatStore } = await import('../stores/chatStore');
   const { useNotesStore } = await import('../stores/notesStore');
 
-  // Read the slot's messages: if it is the active chat session getMessages()
-  // returns them; otherwise pull from the stored sessions list by id.
+  // Read the slot's messages. When the session is linked to a specific chat slot
+  // (chatSessionId set), save EXACTLY that slot's messages — and an EMPTY chat if
+  // that slot no longer exists. We must NOT fall back to getMessages() there, as
+  // that returns whatever OTHER (active) session is current, which would save
+  // unrelated chat into this campaign's bundle. getMessages() is only correct
+  // when there is no chatSessionId link at all.
   const chatStore = useChatStore.getState();
-  let chat: Message[] = chatStore.getMessages();
+  let chat: Message[];
   if (activeSession.chatSessionId) {
     const slot = chatStore.sessions.find((s) => s.id === activeSession.chatSessionId);
-    if (slot) chat = slot.messages;
+    chat = slot ? slot.messages : [];
+  } else {
+    chat = chatStore.getMessages();
   }
 
   const notes = useNotesStore.getState().notes;
@@ -265,9 +281,15 @@ export async function listSaveFiles(): Promise<SaveFileEntry[]> {
   let entries: Array<{ name: string; isFile: boolean; isDirectory: boolean }>;
   try {
     entries = (await readDir(savesDir)) as any[];
-  } catch {
-    // Dir not created yet (no save has been written) — surface as empty.
-    return [];
+  } catch (err) {
+    // ONLY a not-found error means "dir not created yet (no save written)" —
+    // surface that as empty. Any other failure (e.g. permission denied) is a
+    // real error and must propagate, not be silently swallowed as "no saves".
+    const msg = toErrorMessage(err, 'Failed to list save files');
+    if (/ENOENT|not\s+found|does\s+not\s+exist/i.test(msg)) {
+      return [];
+    }
+    throw new Error(`Failed to list save files: ${msg}`);
   }
 
   return entries

@@ -81,4 +81,56 @@ describe('notesStore.importNotes (dedup by id)', () => {
     const notes = useNotesStore.getState().notes.filter((n) => n.id === 'dup');
     expect(notes).toHaveLength(1);
   });
+
+  // A .qksave is untrusted input; a malformed notes payload must be rejected
+  // BEFORE any dedup/mutation so the store is left unchanged (no-clobber).
+  describe('shape validation (no-clobber)', () => {
+    it('throws and leaves the store unchanged when a note entry is not an object', () => {
+      useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          makeNote({ id: 'n1' }),
+          'not-an-object' as any,
+        ])
+      ).toThrow(/notes payload contains invalid note entries/);
+
+      const ids = useNotesStore.getState().notes.map((n) => n.id);
+      expect(ids).toEqual(['keep']);
+    });
+
+    it('throws and leaves the store unchanged when a note entry lacks a string id', () => {
+      useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          makeNote({ id: 'n1' }),
+          { title: 'no id here' } as any,
+        ])
+      ).toThrow(/notes payload contains invalid note entries/);
+
+      const ids = useNotesStore.getState().notes.map((n) => n.id);
+      expect(ids).toEqual(['keep']);
+    });
+
+    it('throws when a note id is a non-string (e.g. number)', () => {
+      useNotesStore.setState({ notes: [] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([{ id: 42, title: 'x' } as any])
+      ).toThrow(/notes payload contains invalid note entries/);
+
+      expect(useNotesStore.getState().notes).toHaveLength(0);
+    });
+
+    it('throws when a note entry is null', () => {
+      useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([null as any])
+      ).toThrow(/notes payload contains invalid note entries/);
+
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+    });
+  });
 });

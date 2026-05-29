@@ -126,6 +126,21 @@ export const useNotesStore = create<NotesState>()(
       },
 
       importNotes: (notes) => {
+        // Validate shape FIRST (a .qksave is untrusted input). Every entry must
+        // be a non-null object carrying a string `id` — the id is the dedup key
+        // and downstream queries assume the Note shape. Throw BEFORE any
+        // dedup/mutation so a malformed payload leaves the store untouched
+        // (no-clobber); the caller (importCampaignFromFile) runs this before the
+        // session upsert, so a bad notes array aborts the whole restore cleanly.
+        for (const note of notes) {
+          if (
+            note === null ||
+            typeof note !== 'object' ||
+            typeof (note as { id?: unknown }).id !== 'string'
+          ) {
+            throw new Error('Invalid save file: notes payload contains invalid note entries');
+          }
+        }
         // Dedup by id. Loading a campaign save re-imports its notes, and the
         // player may re-load the same .qksave more than once — a naive
         // `[...notes, ...state.notes]` prepend would clone every note on each

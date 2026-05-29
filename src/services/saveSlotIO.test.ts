@@ -226,15 +226,54 @@ describe('buildCampaignBundle', () => {
 
   it('captures the slot chat messages and notes into the bundle', async () => {
     callTool.mockResolvedValueOnce(exportResponse());
-    chatGetMessages.mockReturnValue([
-      { id: 'm1', sender: 'user', content: 'Hello', timestamp: 1 },
-      { id: 'm2', sender: 'ai', content: 'Hi', timestamp: 2 },
-    ]);
+    // The linked chat slot exists — its messages are captured (not getMessages()).
+    chatSessions = [
+      {
+        id: 'chat_1',
+        title: 'Linked',
+        messages: [
+          { id: 'm1', sender: 'user', content: 'Hello', timestamp: 1 },
+          { id: 'm2', sender: 'ai', content: 'Hi', timestamp: 2 },
+        ],
+        createdAt: 1,
+        updatedAt: 2,
+      },
+    ];
 
     const bundle = await buildCampaignBundle(activeSessionFixture());
 
     expect(bundle.chat).toHaveLength(2);
     expect(bundle.notes).toEqual(notes);
+  });
+
+  it('saves EMPTY chat (not the active/other session) when the linked chatSessionId has no matching slot', async () => {
+    callTool.mockResolvedValueOnce(exportResponse());
+    // The active session links to chat_1, but NO chat slot with that id exists.
+    // getMessages() would return some OTHER (active) session's messages — we must
+    // NOT save those; the missing linked slot means an empty chat.
+    chatSessions = [
+      { id: 'some_other_chat', title: 'Other', messages: [{ id: 'x', sender: 'user', content: 'unrelated', timestamp: 9 }], createdAt: 1, updatedAt: 1 },
+    ];
+    chatGetMessages.mockReturnValue([
+      { id: 'x', sender: 'user', content: 'unrelated', timestamp: 9 },
+    ]);
+
+    const bundle = await buildCampaignBundle(activeSessionFixture());
+
+    expect(bundle.chat).toEqual([]);
+  });
+
+  it('uses getMessages() only when there is NO chatSessionId link', async () => {
+    callTool.mockResolvedValueOnce(exportResponse());
+    const unlinked = { ...activeSessionFixture(), chatSessionId: undefined };
+    chatGetMessages.mockReturnValue([
+      { id: 'm1', sender: 'user', content: 'Hello', timestamp: 1 },
+      { id: 'm2', sender: 'ai', content: 'Hi', timestamp: 2 },
+    ]);
+
+    const bundle = await buildCampaignBundle(unlinked as any);
+
+    expect(bundle.chat).toHaveLength(2);
   });
 
   it('throws when the engine export reports a failure (no silent partial bundle)', async () => {
@@ -327,6 +366,20 @@ describe('listSaveFiles', () => {
 
     await expect(listSaveFiles()).resolves.toEqual([]);
   });
+
+  it('returns an empty list for a "does not exist" / "not found" readDir error', async () => {
+    readDir.mockRejectedValueOnce(new Error('path does not exist'));
+    await expect(listSaveFiles()).resolves.toEqual([]);
+
+    readDir.mockRejectedValueOnce(new Error('No such file or directory (not found)'));
+    await expect(listSaveFiles()).resolves.toEqual([]);
+  });
+
+  it('rethrows (does NOT silently return []) on a generic / permission readDir error', async () => {
+    readDir.mockRejectedValueOnce(new Error('EACCES: permission denied'));
+
+    await expect(listSaveFiles()).rejects.toThrow(/Failed to list save files/);
+  });
 });
 
 // =============================================================================
@@ -408,6 +461,41 @@ describe('importCampaignFromFile (no-clobber)', () => {
     expect(importNotes).not.toHaveBeenCalled();
     expect(switchSession).not.toHaveBeenCalled();
   });
+
+  // sessionMeta.{id,name,worldId} feed downstream store mutations + the engine
+  // import worldId, so a bundle missing/empty in any of them must be rejected
+  // BEFORE the engine import or any store mutation.
+  for (const field of ['id', 'name', 'worldId'] as const) {
+    it(`REJECTS a bundle whose sessionMeta.${field} is missing (no import / no mutation)`, async () => {
+      const bad = validSaveFileBundle();
+      delete (bad.sessionMeta as any)[field];
+      readTextFile.mockResolvedValueOnce(JSON.stringify(bad));
+
+      await expect(
+        importCampaignFromFile('/mock/app/data/saves/badmeta.qksave')
+      ).rejects.toThrow(new RegExp(`sessionMeta\\.${field} is required`));
+
+      expect(callTool).not.toHaveBeenCalled();
+      expect(importNotes).not.toHaveBeenCalled();
+      expect(switchSession).not.toHaveBeenCalled();
+      expect(createSession).not.toHaveBeenCalled();
+      expect(updateSession).not.toHaveBeenCalled();
+    });
+
+    it(`REJECTS a bundle whose sessionMeta.${field} is an empty string (no import / no mutation)`, async () => {
+      const bad = validSaveFileBundle();
+      (bad.sessionMeta as any)[field] = '';
+      readTextFile.mockResolvedValueOnce(JSON.stringify(bad));
+
+      await expect(
+        importCampaignFromFile('/mock/app/data/saves/emptymeta.qksave')
+      ).rejects.toThrow(new RegExp(`sessionMeta\\.${field} is required`));
+
+      expect(callTool).not.toHaveBeenCalled();
+      expect(importNotes).not.toHaveBeenCalled();
+      expect(switchSession).not.toHaveBeenCalled();
+    });
+  }
 
   it('does NOT mutate frontend stores when the engine import itself fails', async () => {
     callTool.mockResolvedValueOnce(
