@@ -151,9 +151,19 @@ export const useNotesStore = create<NotesState>()(
         //    `characterId`, `worldId`, `questId`): NOT required — an absent
         //    optional is fine — but if PRESENT it must carry the right type
         //    (type-checked-if-present), so a malformed value can't poison a
-        //    query (getNotesByCategory) or the sort (getSortedNotes' updatedAt
-        //    subtraction). createdAt/updatedAt accept number OR string, since a
-        //    serialized save may carry either; pinned must be boolean.
+        //    query (getNotesByCategory) or the sort.
+        //
+        //    createdAt/updatedAt, IF PRESENT, must be a FINITE NUMBER — NOT a
+        //    string. The store writes numeric Date.now() timestamps and
+        //    getSortedNotes sorts by `b.updatedAt - a.updatedAt`; a string (or
+        //    NaN/Infinity) makes that subtraction NaN and silently breaks the
+        //    sort, so a string timestamp is rejected here (CodeRabbit round-4).
+        //    pinned must be boolean.
+        //
+        //    category/author are OPTIONAL fields are type-checked-if-present, not
+        //    required — makeNote defaults them; requiring them would reject valid
+        //    saves. A note WITHOUT category/author is valid; a PRESENT one must be
+        //    a string.
         //
         // We deliberately do NOT expand this into a require-every-field check —
         // that would reject valid saves the store would otherwise accept.
@@ -172,12 +182,9 @@ export const useNotesStore = create<NotesState>()(
             // Optional-if-present type checks (absent ⇒ ok).
             (!isMissing(n.category) && typeof n.category !== 'string') ||
             (!isMissing(n.author) && typeof n.author !== 'string') ||
-            (!isMissing(n.createdAt) &&
-              typeof n.createdAt !== 'number' &&
-              typeof n.createdAt !== 'string') ||
-            (!isMissing(n.updatedAt) &&
-              typeof n.updatedAt !== 'number' &&
-              typeof n.updatedAt !== 'string') ||
+            // Number-only (finite) timestamps — reject strings / NaN / Infinity.
+            (!isMissing(n.createdAt) && !Number.isFinite(n.createdAt)) ||
+            (!isMissing(n.updatedAt) && !Number.isFinite(n.updatedAt)) ||
             (!isMissing(n.pinned) && typeof n.pinned !== 'boolean') ||
             (!isMissing(n.characterId) && typeof n.characterId !== 'string') ||
             (!isMissing(n.worldId) && typeof n.worldId !== 'string') ||

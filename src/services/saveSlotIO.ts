@@ -178,7 +178,11 @@ function validateSaveBundle(parsed: unknown): CampaignSaveBundle {
       typeof m.id !== 'string' ||
       typeof m.sender !== 'string' ||
       typeof m.content !== 'string' ||
-      typeof m.timestamp !== 'number'
+      // timestamp must be a FINITE number. A bare `typeof === 'number'` admits
+      // NaN and ±Infinity (JSON.parse('1e400') overflows to a real Infinity, so
+      // a hand-edited save can carry one) — those would corrupt the chat sort /
+      // render. Reject here, BEFORE the engine call or any store mutation.
+      !Number.isFinite(m.timestamp)
     ) {
       throw new Error('Invalid save file: chat payload contains invalid message entries');
     }
@@ -474,6 +478,12 @@ export async function importCampaignFromFile(path: string): Promise<void> {
     // while future imports still look up by the original meta.id — so re-importing
     // the same .qksave would keep spawning duplicate sessions instead of updating
     // the prior import. Carrying meta.id makes the import idempotent.
+    //
+    // Also carry the SAVED snapshot + persisted metadata. The update branch above
+    // already restores meta.snapshot; the create branch previously dropped it
+    // (along with createdAt/lastPlayedAt/playtime) and defaulted them, so a
+    // re-imported campaign lost its UI snapshot (party/level/location) and reset
+    // its timestamps. Pass them through so create and update stay symmetric.
     targetSessionId = sessionStore.createSession({
       id: meta.id,
       name: meta.name,
@@ -482,6 +492,10 @@ export async function importCampaignFromFile(path: string): Promise<void> {
       worldId: meta.worldId,
       chatSessionId,
       activeCharacterId: meta.activeCharacterId,
+      snapshot: meta.snapshot,
+      createdAt: meta.createdAt,
+      lastPlayedAt: meta.lastPlayedAt,
+      playtime: meta.playtime,
     });
   }
 

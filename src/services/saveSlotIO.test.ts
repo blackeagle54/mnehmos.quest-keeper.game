@@ -301,22 +301,38 @@ describe('buildCampaignBundle', () => {
       { id: 'note1', title: 'Lore', content: 'stuff', category: 'lore', tags: ['a'], author: 'player', createdAt: 1, updatedAt: 1 },
     ];
     notes = liveNotes;
+    // Hold the SAME object reference we hand to the builder so we can mutate the
+    // LIVE session afterwards and prove the bundle was decoupled by the clone.
+    // (Comparing against a fresh activeSessionFixture() would ALWAYS differ —
+    // a new object every call — so it never exercised the clone at all.)
+    const liveSession = activeSessionFixture();
 
-    const bundle = await buildCampaignBundle(activeSessionFixture());
+    const bundle = await buildCampaignBundle(liveSession);
 
-    // Mutate the live store data AFTER the build returned.
+    // Mutate the live store data AND the live session object AFTER build returned.
     liveChat.push({ id: 'm2', sender: 'ai', content: 'leaked!', timestamp: 9 });
     liveNotes[0].title = 'EDITED AFTER SAVE';
     liveNotes.push({ id: 'note2', title: 'new', content: 'c', category: 'lore', tags: [], author: 'player', createdAt: 2, updatedAt: 2 });
+    liveSession.name = 'RENAMED AFTER SAVE';
+    (liveSession.snapshot as any).level = 999;
 
     // The snapshot is frozen at build time — none of the post-build edits leak.
     expect(bundle.chat).toHaveLength(1);
     expect(bundle.notes).toHaveLength(1);
     expect(bundle.notes[0].title).toBe('Lore');
-    // And the bundle is not the same reference as the live store arrays/objects.
+    // The cloned sessionMeta did not pick up the live mutations.
+    expect(bundle.sessionMeta.name).toBe('The Ironwood Saga');
+    expect(bundle.sessionMeta.snapshot.level).toBe(3);
+
+    // And every snapshotted half is a DIFFERENT reference than the live store
+    // data — the load-bearing decoupling check. Without the deep clone in
+    // buildCampaignBundle these would be the same reference and FAIL: the chat
+    // array IS the live slot's messages, notes IS the live notes array, and
+    // sessionMeta IS the live session object we passed in.
     expect(bundle.chat).not.toBe(liveChat);
     expect(bundle.notes).not.toBe(liveNotes);
-    expect(bundle.sessionMeta).not.toBe(activeSessionFixture()); // (cloned object)
+    expect(bundle.sessionMeta).not.toBe(liveSession);
+    expect(bundle.sessionMeta.snapshot).not.toBe(liveSession.snapshot);
   });
 
   it('propagates a callTool rejection (engine JSON-RPC error)', async () => {
@@ -622,6 +638,43 @@ describe('importCampaignFromFile (no-clobber)', () => {
     ).resolves.toBeUndefined();
     expect(switchSession).toHaveBeenCalledTimes(1);
   });
+
+  // CodeRabbit round-4 (saveSlotIO.ts:183): a chat timestamp that is technically
+  // typeof 'number' but NOT finite (Infinity from a numeric overflow literal, or
+  // NaN) would pass the old `typeof === 'number'` check, succeed the engine
+  // import, then corrupt sort/render. Require Number.isFinite — reject the file
+  // BEFORE any engine call or store mutation, so a poisoned timestamp never
+  // clobbers current state.
+  //
+  // JSON.parse('1e400') returns a REAL Infinity number (overflow, no throw) — a
+  // hand-edited .qksave can carry exactly this — so the non-finite value reaches
+  // validateSaveBundle as a genuine number, not as a parse error.
+  for (const [label, rawTimestamp] of [
+    ['Infinity (overflow 1e400)', '1e400'],
+    ['-Infinity (overflow -1e400)', '-1e400'],
+  ] as const) {
+    it(`REJECTS a chat entry with a non-finite ${label} timestamp without calling import or mutating stores`, async () => {
+      const bundle = validSaveFileBundle();
+      // Splice the overflow literal into the raw JSON text so JSON.parse yields a
+      // real non-finite number (Tauri's readTextFile returns the exact bytes a
+      // hand-edited save contains).
+      const json = JSON.stringify(bundle).replace(
+        '"timestamp":1}',
+        `"timestamp":${rawTimestamp}}`
+      );
+      readTextFile.mockResolvedValueOnce(json);
+
+      await expect(
+        importCampaignFromFile('/mock/app/data/saves/nonfinite.qksave')
+      ).rejects.toThrow(/chat/i);
+
+      expect(callTool).not.toHaveBeenCalled();
+      expect(importNotes).not.toHaveBeenCalled();
+      expect(switchSession).not.toHaveBeenCalled();
+      expect(createSession).not.toHaveBeenCalled();
+      expect(updateSession).not.toHaveBeenCalled();
+    });
+  }
 });
 
 // =============================================================================
@@ -670,6 +723,49 @@ describe('importCampaignFromFile (session/chat identity)', () => {
     expect(opts.id).toBe('session_1'); // the saved meta.id, preserved on create
     // And we switch to THAT id (not a freshly generated one).
     expect(switchSession).toHaveBeenCalledWith('session_1');
+  });
+
+  // CodeRabbit round-4 (saveSlotIO.ts:485): the create-new-session branch only
+  // passed id/name/description/partyId/worldId/chatSessionId/activeCharacterId —
+  // it DROPPED the saved sessionMeta.snapshot (and other persisted CampaignSession
+  // metadata). A re-imported campaign then lost its UI snapshot (party/level/
+  // location). Assert the snapshot (and createdAt/playtime, when saved) are passed
+  // through to createSession so the restored session keeps them.
+  it('restores the saved sessionMeta.snapshot (and metadata) on the create-new-session branch', async () => {
+    callTool.mockResolvedValueOnce(importResponse());
+    sessions = []; // forces the createSession branch
+
+    await importCampaignFromFile('/mock/app/data/saves/withsnapshot.qksave');
+
+    expect(createSession).toHaveBeenCalledTimes(1);
+    const opts = createSession.mock.calls[0][0];
+    // The saved snapshot survives the round-trip (was being dropped before).
+    expect(opts.snapshot).toEqual({
+      partyName: 'The Party',
+      level: 3,
+      locationName: 'Ironwood',
+      memberCount: 2,
+    });
+    // Other persisted CampaignSession metadata is carried through too.
+    expect(opts.createdAt).toBe(1000);
+    expect(opts.playtime).toBe(5000);
+    expect(opts.lastPlayedAt).toBe(2000);
+  });
+
+  it('updates the existing session with the saved snapshot on re-import', async () => {
+    sessions = [{ ...activeSessionFixture(), snapshot: { partyName: 'stale', level: 1, locationName: 'old', memberCount: 0 } }];
+    callTool.mockResolvedValueOnce(importResponse());
+
+    await importCampaignFromFile('/mock/app/data/saves/again2.qksave');
+
+    expect(updateSession).toHaveBeenCalledTimes(1);
+    const [, updates] = updateSession.mock.calls[0];
+    expect(updates.snapshot).toEqual({
+      partyName: 'The Party',
+      level: 3,
+      locationName: 'Ironwood',
+      memberCount: 2,
+    });
   });
 
   it('re-importing the same save UPDATES the existing session (no duplicate) once it is present locally', async () => {

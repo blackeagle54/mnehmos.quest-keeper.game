@@ -290,17 +290,82 @@ describe('notesStore.importNotes (dedup by id)', () => {
       expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['minimal']);
     });
 
-    it('accepts createdAt/updatedAt as either number OR string (both are valid serialized forms)', () => {
+    // CodeRabbit #188 over-reach guard: category/author are OPTIONAL by design
+    // (makeNote defaults them; the Note type marks them optional). They must NOT
+    // be required — a note WITHOUT category/author is a valid save. They stay
+    // type-checked-IF-present (a present string is fine; a present non-string is
+    // rejected by the parametrized table above). Requiring them would reject
+    // valid saves, so absent must remain accepted.
+    it('accepts a note with category/author ABSENT (they are optional, not required)', () => {
+      useNotesStore.setState({ notes: [] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          // no category, no author — only required + numeric timestamps.
+          { id: 'no-opt', title: 't', content: 'c', tags: [], createdAt: 1, updatedAt: 2 } as any,
+        ])
+      ).not.toThrow();
+
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['no-opt']);
+    });
+
+    it('accepts a note with category/author PRESENT as strings (type-checked-if-present)', () => {
+      useNotesStore.setState({ notes: [] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          { id: 'with-opt', title: 't', content: 'c', tags: [], category: 'lore', author: 'player', createdAt: 1, updatedAt: 2 } as any,
+        ])
+      ).not.toThrow();
+
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['with-opt']);
+    });
+
+    // CodeRabbit round-4 (notesStore #200/#304, #188 partial): the store stores
+    // NUMERIC timestamps (Date.now()) and getSortedNotes does `b.updatedAt -
+    // a.updatedAt`. A string createdAt/updatedAt makes that subtraction NaN and
+    // silently breaks the sort, so a string timestamp is NO LONGER accepted —
+    // createdAt/updatedAt, if present, must be a (finite) NUMBER. This FLIPS the
+    // round-3 "accepts number OR string" test below.
+    it('accepts a numeric createdAt/updatedAt (the only valid serialized form)', () => {
       useNotesStore.setState({ notes: [] });
 
       expect(() =>
         useNotesStore.getState().importNotes([
           { id: 'n-num', title: 't', content: 'c', tags: [], createdAt: 1, updatedAt: 2 } as any,
-          { id: 'n-str', title: 't', content: 'c', tags: [], createdAt: '2020', updatedAt: '2021' } as any,
         ])
       ).not.toThrow();
 
-      expect(useNotesStore.getState().notes.map((n) => n.id).sort()).toEqual(['n-num', 'n-str']);
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['n-num']);
     });
+
+    for (const field of ['createdAt', 'updatedAt'] as const) {
+      it(`REJECTS a string ${field} (number-only: a string breaks getSortedNotes' numeric sort)`, () => {
+        useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+        const bad: any = { id: 'n-str', title: 't', content: 'c', tags: [] };
+        bad[field] = '2020';
+
+        expect(() =>
+          useNotesStore.getState().importNotes([bad])
+        ).toThrow(/notes payload contains invalid note entries/);
+
+        // No-clobber: the rejection happens before any mutation.
+        expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+      });
+
+      it(`REJECTS a non-finite ${field} (NaN/Infinity also break the numeric sort)`, () => {
+        useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+        const bad: any = { id: 'n-nan', title: 't', content: 'c', tags: [] };
+        bad[field] = NaN;
+
+        expect(() =>
+          useNotesStore.getState().importNotes([bad])
+        ).toThrow(/notes payload contains invalid note entries/);
+
+        expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+      });
+    }
   });
 });
