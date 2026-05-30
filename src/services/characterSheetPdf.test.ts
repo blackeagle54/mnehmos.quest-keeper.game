@@ -256,6 +256,32 @@ describe('buildCharacterSheetDocDefinition', () => {
     expect(text.toUpperCase()).not.toContain('SPELLS');
   });
 
+  it('renders equipment.other items as an "Other:" line', () => {
+    const docDef = buildCharacterSheetDocDefinition(
+      character({
+        equipment: {
+          armor: 'Plate',
+          weapons: ['Longsword'],
+          other: ['Torch', 'Rope'],
+        },
+      }),
+      { generatedAt: FIXED_TS }
+    );
+    const text = collectText(docDef.content).join('\n');
+    expect(text).toContain('Other: Torch, Rope');
+  });
+
+  it('omits the "Other:" line when equipment.other is empty', () => {
+    const docDef = buildCharacterSheetDocDefinition(
+      character({
+        equipment: { armor: 'Plate', weapons: ['Longsword'], other: [] },
+      }),
+      { generatedAt: FIXED_TS }
+    );
+    const text = collectText(docDef.content).join('\n');
+    expect(text).not.toContain('Other:');
+  });
+
   it('does not throw on a minimal character with empty inventory/equipment', () => {
     const minimal = character({
       equipment: { armor: 'None', weapons: [], other: [] },
@@ -379,6 +405,26 @@ describe('exportCharacterSheetPdf', () => {
     const docDef = createPdf.mock.calls[0][0] as { content: unknown[] };
     const text = collectText(docDef.content).join('\n');
     // The active character's Spellbook must NOT leak onto a different character.
+    expect(text).not.toContain('Spellbook');
+    expect(text).toContain('No items carried.');
+  });
+
+  it('does NOT attach the active inventory when BOTH ids are undefined', async () => {
+    // CharacterStats.id is `string | undefined`. A bare `===` comparison would
+    // treat two undefined ids as equal, wrongly leaking the active character's
+    // inventory onto an unrelated character that also lacks an id.
+    gameStateState = {
+      activeCharacter: character({ id: undefined, name: 'Aria Stormborn' }),
+      inventory: [item({ id: 'a', name: 'Spellbook' })],
+    };
+
+    const other = character({ id: undefined, name: 'Borin Ironfist' });
+    await exportCharacterSheetPdf(other, FIXED_TS);
+
+    const docDef = createPdf.mock.calls[0][0] as { content: unknown[] };
+    const text = collectText(docDef.content).join('\n');
+    // The active character's Spellbook must NOT leak onto a different character
+    // just because neither has an id.
     expect(text).not.toContain('Spellbook');
     expect(text).toContain('No items carried.');
   });

@@ -151,10 +151,12 @@ export function buildCharacterSheetDocDefinition(
   // --- Equipment --------------------------------------------------------------
   content.push({ text: 'EQUIPMENT', style: 'sectionHeader' });
   const weapons = character.equipment?.weapons ?? [];
+  const other = character.equipment?.other ?? [];
   const equipmentLines: string[] = [
     `Armor: ${character.equipment?.armor || 'None'}`,
     weapons.length > 0 ? `Weapons: ${weapons.join(', ')}` : 'Weapons: None',
   ];
+  if (other.length > 0) equipmentLines.push(`Other: ${other.join(', ')}`);
   content.push({ ul: equipmentLines, style: 'list' });
 
   // --- Inventory --------------------------------------------------------------
@@ -239,9 +241,13 @@ export async function exportCharacterSheetPdf(
   // active character; otherwise a non-active export would wrongly carry the
   // active character's inventory. Per-character inventory for non-active chars
   // isn't synced into the store, so it correctly falls back to empty.
+  // Guard against matching on two undefined ids: CharacterStats.id is
+  // `string | undefined`, so a bare `===` would treat two id-less characters as
+  // the same and wrongly attach the active inventory. Require a defined id.
   const isActiveCharacter =
     !character ||
     (gameState.activeCharacter != null &&
+      gameState.activeCharacter.id != null &&
       gameState.activeCharacter.id === character.id);
   const inventory = isActiveCharacter ? (gameState.inventory ?? []) : [];
 
