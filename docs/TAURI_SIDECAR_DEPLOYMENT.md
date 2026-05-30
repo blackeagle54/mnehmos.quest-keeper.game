@@ -16,9 +16,9 @@ When deploying updated MCP server binaries during development, the app was still
 
 | Location                             | Purpose                            |
 | ------------------------------------ | ---------------------------------- |
-| `src-tauri/binaries/`                | Source files for production builds |
-| `src-tauri/target/debug/binaries/`   | Runtime location for `tauri dev`   |
-| `src-tauri/target/release/binaries/` | Runtime location for `tauri build` |
+| `src-tauri/`                         | Source sidecar (`externalBin: <name>-<target-triple>`, at the src-tauri root) |
+| `src-tauri/target/debug/`            | Runtime location for `tauri dev`   |
+| `src-tauri/target/release/`          | Runtime location for `tauri build` |
 
 ## Deployment Procedure
 
@@ -34,11 +34,11 @@ When updating `rpg-mcp-server`:
 2. Copy to **BOTH** locations:
 
    ```powershell
-   # Production source
-   Copy-Item -Force bin/rpg-mcp-win.exe src-tauri/binaries/rpg-mcp-server-x86_64-pc-windows-msvc.exe
+   # Production source (Tauri externalBin resolves the sidecar at the src-tauri root)
+   Copy-Item -Force bin/rpg-mcp-win.exe src-tauri/rpg-mcp-server-x86_64-pc-windows-msvc.exe
 
    # Dev runtime (Tauri dev loads from here!)
-   Copy-Item -Force bin/rpg-mcp-win.exe src-tauri/target/debug/binaries/rpg-mcp-server-x86_64-pc-windows-msvc.exe
+   Copy-Item -Force bin/rpg-mcp-win.exe src-tauri/target/debug/rpg-mcp-server-x86_64-pc-windows-msvc.exe
    ```
 
 3. Kill any running server processes:
