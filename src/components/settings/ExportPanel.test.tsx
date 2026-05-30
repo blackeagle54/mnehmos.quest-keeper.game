@@ -19,9 +19,21 @@ vi.mock('../../services/adventureLogExport', () => ({
     exportAdventureLogToFile(...args),
 }));
 
+const exportCharacterSheetPdf = vi.fn();
+
+vi.mock('../../services/characterSheetPdf', () => ({
+  exportCharacterSheetPdf: (...args: unknown[]) =>
+    exportCharacterSheetPdf(...args),
+}));
+
 let sessionState: any;
 vi.mock('../../stores/sessionStore', () => ({
   useSessionStore: (selector: any) => selector(sessionState),
+}));
+
+let gameStateState: any;
+vi.mock('../../stores/gameStateStore', () => ({
+  useGameStateStore: (selector: any) => selector(gameStateState),
 }));
 
 import { ExportPanel } from './ExportPanel';
@@ -29,8 +41,12 @@ import { ExportPanel } from './ExportPanel';
 describe('ExportPanel', () => {
   beforeEach(() => {
     exportAdventureLogToFile.mockReset();
+    exportCharacterSheetPdf.mockReset();
     sessionState = {
       getActiveSession: () => ({ id: 's1', name: 'The Lost Mine' }),
+    };
+    gameStateState = {
+      activeCharacter: { name: 'Aria Stormborn', level: 5, class: 'Wizard' },
     };
   });
 
@@ -173,6 +189,56 @@ describe('ExportPanel', () => {
       // The guard must skip the post-unmount setState (setError + setStatus).
       expect(settersCalledSince(baseline)).toBe(0);
       expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  // --- PDF character-sheet export button (Phase 5) ---------------------------
+
+  describe('character-sheet PDF export', () => {
+    it('renders the PDF export button', () => {
+      render(<ExportPanel />);
+      expect(
+        screen.getByTestId('export-character-pdf-btn')
+      ).toBeInTheDocument();
+      expect(screen.getByText(/character sheet \(pdf\)/i)).toBeInTheDocument();
+    });
+
+    it('disables the button (empty state) when there is no active character', () => {
+      gameStateState = { activeCharacter: null };
+      render(<ExportPanel />);
+      expect(screen.getByTestId('export-character-pdf-btn')).toBeDisabled();
+      expect(
+        screen.getByTestId('export-character-pdf-empty-state')
+      ).toBeInTheDocument();
+    });
+
+    it('triggers the PDF export and shows the success path', async () => {
+      exportCharacterSheetPdf.mockResolvedValue(
+        '/mock/app/data/exports/aria-stormborn.pdf'
+      );
+      render(<ExportPanel />);
+
+      fireEvent.click(screen.getByTestId('export-character-pdf-btn'));
+
+      await waitFor(() => {
+        expect(exportCharacterSheetPdf).toHaveBeenCalledTimes(1);
+      });
+
+      const success = await screen.findByTestId('export-character-pdf-success');
+      expect(success).toHaveTextContent('aria-stormborn.pdf');
+    });
+
+    it('shows an error state when the PDF export rejects (no throw escapes the UI)', async () => {
+      exportCharacterSheetPdf.mockRejectedValue(new Error('disk full'));
+      render(<ExportPanel />);
+
+      fireEvent.click(screen.getByTestId('export-character-pdf-btn'));
+
+      const error = await screen.findByTestId('export-character-pdf-error');
+      expect(error).toHaveTextContent(/disk full|failed/i);
+      expect(
+        screen.queryByTestId('export-character-pdf-success')
+      ).not.toBeInTheDocument();
     });
   });
 });
