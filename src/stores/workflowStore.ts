@@ -69,6 +69,9 @@ export interface WorkflowRunResult {
   results?: WorkflowRunStep[];
   error?: boolean;
   message?: string;
+  // Client-attached: which template produced this run, so the UI can hide a stale
+  // result once the selection changes (the engine payload does not echo it).
+  templateId?: string;
 }
 
 /** Options for a runWorkflow call. */
@@ -333,7 +336,10 @@ export const useWorkflowStore = create<WorkflowState>()(
               return data ?? null;
             }
 
-            set({ lastRun: data });
+            // Tag the run with its template so the UI can hide it once the user
+            // selects a different template (the engine payload omits the templateId).
+            const lastRun: WorkflowRunResult = { ...data, templateId };
+            set({ lastRun });
 
             // Only an EXECUTED (autoExecute:true) run mass-mutates game state; a
             // dry-run preview (autoExecute:false) changes nothing, so it must not
@@ -345,7 +351,7 @@ export const useWorkflowStore = create<WorkflowState>()(
               queueMicrotask(resyncAfterRun);
             }
 
-            return data;
+            return lastRun;
           } catch (err) {
             // A rejection means the call never landed — no mutation, no re-sync.
             set({ error: toErrorMessage(err, 'Failed to run workflow') });

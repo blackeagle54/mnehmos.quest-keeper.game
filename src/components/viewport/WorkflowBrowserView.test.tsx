@@ -185,6 +185,7 @@ describe('WorkflowBrowserView', () => {
         autoExecuted: true,
         executedSteps: 2,
         failureCount: 0,
+        templateId: 'onboard-party',
         steps: [
           { tool: 'create_party', success: true },
           { tool: 'create_character', success: true },
@@ -197,6 +198,26 @@ describe('WorkflowBrowserView', () => {
     // The executed-steps + failure summary surfaces inside the result panel.
     expect(panel).toHaveTextContent(/Executed steps:\s*2/i);
     expect(panel).toHaveTextContent(/Failures:\s*0/i);
+  });
+
+  it('does NOT render a run result that belongs to a different template than the selection', () => {
+    // lastRun lingers in the store after a run; once the user selects a different
+    // template, the stale result must be hidden (it describes the OLD template).
+    workflowState = {
+      ...workflowState,
+      selectedTemplateId: 'onboard-party',
+      detail: sampleDetail(),
+      lastRun: {
+        actionType: 'execute_workflow',
+        autoExecuted: true,
+        executedSteps: 2,
+        failureCount: 0,
+        templateId: 'seed-world', // a DIFFERENT template's result
+        steps: [{ tool: 'create_party', success: true }],
+      },
+    };
+    render(<WorkflowBrowserView />);
+    expect(screen.queryByTestId('workflow-run-result')).not.toBeInTheDocument();
   });
 
   it('renders an error banner when the store has an error', () => {
@@ -249,6 +270,7 @@ describe('WorkflowBrowserView', () => {
       lastRun: {
         actionType: 'execute_workflow',
         autoExecuted: false,
+        templateId: 'onboard-party',
         steps: [
           { tool: 'create_party', resolved: true },
           { tool: 'create_character', resolved: true },

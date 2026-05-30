@@ -356,8 +356,11 @@ export const WorkflowBrowserView: React.FC = () => {
               </div>
             )}
 
-            {/* Run / preview result */}
-            {lastRun && <RunResultPanel run={lastRun} />}
+            {/* Run / preview result — gated to the CURRENT selection so a result
+                left over from a previously-run template can't show under this one. */}
+            {lastRun && lastRun.templateId === selectedTemplateId && (
+              <RunResultPanel run={lastRun} />
+            )}
           </div>
         )}
       </div>

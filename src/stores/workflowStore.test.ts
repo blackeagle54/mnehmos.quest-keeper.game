@@ -324,6 +324,9 @@ describe('workflowStore', () => {
       expect(s.lastRun?.autoExecuted).toBe(true);
       expect(s.lastRun?.executedSteps).toBe(2);
       expect(s.lastRun?.failureCount).toBe(0);
+      // The run is tagged with its template so the UI can hide a stale result after
+      // the selection changes (the engine payload doesn't echo the templateId).
+      expect(s.lastRun?.templateId).toBe('onboard-party');
       expect(s.error).toBeNull();
       expect(s.isLoading).toBe(false);
 
