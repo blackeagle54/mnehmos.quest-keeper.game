@@ -116,12 +116,12 @@ Quest Keeper AI bridges the gap with:
 - ✅ Achievement tracking (Achievements tab)
 - ✅ Faction reputation with standing tiers (Reputation tab)
 
-### 🔧 In Progress (Phase 5 Partial)
-- 🔧 Session export (Markdown/PDF)
-- 🔧 Context condensing for long sessions
+### ✅ Complete (Phases 5 & 6)
+- ✅ Session export (Markdown + PDF)
+- ✅ Context condensing for long sessions
+- ✅ Batch generation workflows (workflow templates + Workflow Browser)
 
-### ⬜ Planned (Phase 6 & beyond)
-- ⬜ Batch generation workflows
+### ⬜ Planned (beyond the roadmap)
 - ⬜ Multiplayer foundation
 
 ---
