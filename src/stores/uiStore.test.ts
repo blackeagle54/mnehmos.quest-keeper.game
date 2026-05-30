@@ -10,6 +10,8 @@ describe('uiStore navigable tabs', () => {
     for (const tab of ['skills', 'chains', 'achievements', 'reputation'] as const) {
       expect(ALL_TABS).toContain(tab);
     }
+    // Phase-6 Workflow Browser tab must be reachable too.
+    expect(ALL_TABS).toContain('workflows');
     expect(ALL_TABS).toContain('settings');
     // No accidental duplicates.
     expect(new Set(ALL_TABS).size).toBe(ALL_TABS.length);

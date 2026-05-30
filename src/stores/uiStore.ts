@@ -5,7 +5,7 @@ import { create } from 'zustand';
 // so adding a tab can never desync the union from the validator again.
 export const ALL_TABS = [
   'adventure', 'combat', 'character', 'map', 'journal',
-  'skills', 'chains', 'achievements', 'reputation', 'settings',
+  'skills', 'chains', 'achievements', 'reputation', 'workflows', 'settings',
 ] as const;
 export type ActiveTab = (typeof ALL_TABS)[number];
 export type Theme = 'green' | 'amber';

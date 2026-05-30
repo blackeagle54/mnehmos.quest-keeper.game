@@ -43,7 +43,10 @@ const COMPLEX_OPERATIONS = new Set([
     'batch_create_npcs',
     'batch_update_npcs',
     'batch_create_characters',
-    'batch_distribute_items'
+    'batch_distribute_items',
+    // Workflow orchestration — execute_workflow can run many tools in sequence
+    // (world gen + party + characters), so it needs the extended timeout.
+    'batch_manage'
 ]);
 
 export class McpClient {
