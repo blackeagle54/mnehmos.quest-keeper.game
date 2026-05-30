@@ -1,8 +1,8 @@
 # Quest Keeper AI - Development Plan
 
-**Version:** 2.2
-**Last Updated:** May 29, 2026
-**Status:** Active Development (Phase 3 & 4 Complete)
+**Version:** 2.3
+**Last Updated:** May 30, 2026
+**Status:** Active Development (Phase 3 & 4 Complete; Phase 5 90% — only PDF export remains)
 
 ---
 
@@ -153,7 +153,7 @@ Quest Keeper AI combines:
 
 ### Phase 5: Session Management 🔧 PARTIAL
 **Goal:** Play forever, context permitting
-**Status:** 65% Complete
+**Status:** 90% Complete
 
 **Components:**
 1. **Session Save/Load** ✅
@@ -161,27 +161,27 @@ Quest Keeper AI combines:
    - ✅ localStorage auto-persistence
    - ✅ Chat session management (create/switch/delete)
    - ✅ Game state auto-saving
-   - ⬜ Multiple save slots/files
-   - ⬜ Manual save/load to file
+   - ✅ Multiple save slots/files
+   - ✅ Manual save/load to file
 
-2. **Context Condensing** ⬜
-   - ⬜ Summarize for LLM
-   - ⬜ Token-aware compression
-   - ⬜ Priority information
+2. **Context Condensing** ✅
+   - ✅ Summarize for LLM
+   - ✅ Token-aware compression
+   - ✅ Priority information
 
 3. **Session Export** 🔧 Partial
    - ✅ JSON state available in stores
    - ✅ Character/quest/inventory data exportable
-   - ⬜ Markdown adventure log export
+   - ✅ Markdown adventure log export
    - ⬜ PDF character sheet export
-   - ⬜ Dedicated export UI
+   - ✅ Dedicated export UI
 
 **Deliverables:**
 1. ✅ Auto-save via Zustand persist
 2. ✅ Chat session management
-3. ⬜ `export_session` with formats
-4. ⬜ Context condenser
-5. ⬜ Explicit save/load file UI
+3. 🔧 `export_session` with formats (Markdown ✅; PDF ⬜)
+4. ✅ Context condenser
+5. ✅ Explicit save/load file UI
 
 ---
 
@@ -328,4 +328,5 @@ Phase 6: 40% effort (Workflow browser)
 | Dec 3, 2024 | 2.0 | Updated with implementation status - Phase 1 & 2 complete |
 | May 24, 2026 | 2.1 | Phase 4 Enhanced Combat complete — combat log, click-to-move, AoE visualization |
 | May 29, 2026 | 2.2 | Phase 3 Progression complete — skill_manage / quest chains / achievement_manage / reputation_manage (engine) + Skills/Chains/Achievements/Reputation tabs (UI) |
+| May 30, 2026 | 2.3 | Phase 5 Session Management features landed — context condenser (contextCondenser.ts), save/load slots to file (save_manage + saveSlotIO.ts + SaveLoadPanel), Markdown adventure-log export (adventureLogExport.ts + ExportPanel); only PDF export remains |
 

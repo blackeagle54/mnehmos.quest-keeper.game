@@ -10,8 +10,11 @@ reviews:
     # Don't re-review on every push — incremental re-reviews fight rapid TDD
     # red→green→refactor bursts (and re-flag in-flight commits). Iterate freely,
     # then trigger one clean pass with `@coderabbitai review` when a cycle is green.
+    # No auto-pause: with incremental review already off and reviews triggered on
+    # demand via `@coderabbitai review`, a per-N-commits auto-pause is redundant and
+    # harmful — it halts PRs that are legitimately iterating through multiple genuine
+    # review rounds.
     auto_incremental_review: false
-    auto_pause_after_reviewed_commits: 3
     base_branches:
       - "develop"
       - "staging"
