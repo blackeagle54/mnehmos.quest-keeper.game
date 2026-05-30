@@ -302,47 +302,38 @@ describe('McpClient — JSON-RPC framing', () => {
   });
 
   /**
-   * KNOWN BUG (characterized, NOT fixed here): in handleOutput the
-   * `while (newlineIndex !== -1)` loop only refreshes `newlineIndex` at the END
-   * of the body (mcpClient.ts line ~304). The non-JSON-line branch does a bare
-   * `continue` (line ~277) that SKIPS that refresh, so the next iteration slices
-   * the (already-advanced) buffer at a STALE offset — truncating and corrupting
-   * any JSON-RPC frame glued behind a non-'{' line in the SAME stdout chunk.
+   * REGRESSION GUARD (was a real bug, fixed in this PR): in handleOutput the
+   * `while (newlineIndex !== -1)` loop used to refresh `newlineIndex` only at the
+   * END of the body. The non-JSON-line branch does a bare `continue`, which
+   * SKIPPED that refresh — so the next iteration sliced the (already-advanced)
+   * buffer at a STALE offset, truncating and corrupting any JSON-RPC frame glued
+   * behind a non-'{' line in the SAME stdout chunk. Such a response was silently
+   * dropped and its caller hung until the per-op timeout.
    *
-   * Effect: such a response is silently dropped and its caller hangs until the
-   * per-op timeout. Standalone-chunk log lines (test above) are unaffected.
-   *
-   * This test PINS the current (buggy) behavior: the glued frame does NOT
-   * resolve. If handleOutput is later fixed, this test will start failing and
-   * should be flipped to assert the frame resolves. See the boomerang report.
+   * Fix: refresh `newlineIndex` immediately after the buffer is advanced, so every
+   * exit path (including the `continue`) re-enters the loop with a correct offset.
+   * This test pins the corrected behavior: the glued frame routes normally.
    */
-  it('[known bug] a non-JSON line glued in front of a frame in one chunk drops that frame', async () => {
+  it('routes a frame glued behind a non-JSON line in one chunk (regression guard)', async () => {
     const { client, cmd } = await connectedClient();
 
     const pending = client.listTools();
     await Promise.resolve();
     const req = lastWrittenRequest(cmd);
 
-    // Log line + JSON-RPC response in a SINGLE stdout chunk. Today this corrupts
-    // the response slice, so the request stays pending instead of resolving.
+    // Log line + JSON-RPC response in a SINGLE stdout chunk. The non-JSON line must
+    // not corrupt the slice of the frame that follows it in the same chunk.
     cmd.emitStdout('[server] log line\n' + rpcResult(req.id, { tools: ['y'] }));
 
-    // Current behavior: the frame was eaten — still pending, nothing resolved.
-    expect(client.getPendingCount()).toBe(1);
-
-    // Prove it truly never resolved (race against a short timer rather than
-    // awaiting the real 10s listTools timeout).
+    // Race against a short timer (rather than the real 10s listTools timeout) so a
+    // regression fails FAST as STILL_PENDING instead of hanging the suite.
     const outcome = await Promise.race([
       pending.then(() => 'RESOLVED'),
       new Promise<string>((r) => setTimeout(() => r('STILL_PENDING'), 20)),
     ]);
-    expect(outcome).toBe('STILL_PENDING');
-
-    // Settle the dangling request so it doesn't leak a real timer into later
-    // tests: a clean follow-up frame (its own chunk) resolves it correctly,
-    // confirming the bridge itself still works once the corrupting chunk passes.
-    cmd.emitStdout(rpcResult(req.id, { tools: ['y'] }));
+    expect(outcome).toBe('RESOLVED');
     await expect(pending).resolves.toEqual({ tools: ['y'] });
+    expect(client.getPendingCount()).toBe(0);
   });
 
   it('ignores responses whose id does not match any pending request', async () => {
