@@ -326,7 +326,7 @@ The unified `rpg-mcp-server` binary is bundled in `src-tauri/binaries/`. It prov
 
 ## 🎯 Development Status
 
-**Overall Progress: ~78% Complete** | Phases 1-4 ✅ | Phase 5 🔧 | Phase 6 ⬜
+**Overall Progress: ~81% Complete** | Phases 1-4 ✅ | Phase 5 🔧 (90%) | Phase 6 ⬜
 
 ### ✅ Phase 1: Core Systems (Complete)
 
@@ -361,14 +361,16 @@ The unified `rpg-mcp-server` binary is bundled in `src-tauri/binaries/`. It prov
 - ✅ Click-to-move token interaction
 - ✅ Combat log panel
 
-### 🔧 Phase 5: Session Management (70% Complete)
+### 🔧 Phase 5: Session Management (90% Complete)
 
 - ✅ Auto-save via Zustand persist
 - ✅ Chat session management
 - ✅ Seven-layer context architecture
 - ✅ Token budget management
-- ⬜ Context condensing for very long sessions
-- ⬜ Export to Markdown/PDF
+- ✅ Context condensing for very long sessions
+- ✅ Save/load to file with multiple slots
+- ✅ Markdown adventure-log export
+- ⬜ PDF export
 
 ### ✅ Phase 3: Progression Systems (Complete)
 
