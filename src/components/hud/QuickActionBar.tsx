@@ -2,6 +2,7 @@ import React from 'react';
 import { useHudStore } from '../../stores/hudStore';
 import { useCombatStore } from '../../stores/combatStore';
 import { mcpManager } from '../../services/mcpClient';
+import { extractEmbeddedJson } from '../../utils/mcpUtils';
 
 /**
  * Bottom action bar for map visualization tools.
@@ -38,11 +39,27 @@ export const QuickActionBar: React.FC = () => {
         
         if (window.confirm('End this encounter? This will finalize combat and clear the battlefield.')) {
             try {
-                await mcpManager.gameStateClient.callTool('combat_manage', {
+                const result = await mcpManager.gameStateClient.callTool('combat_manage', {
                     action: 'end',
                     encounterId: activeEncounterId
                 });
-                clearCombat(false); // Full clear including encounter ID
+
+                // A resolved callTool is NOT success: the response may be a plain-text /
+                // error / malformed payload. Parse the COMBAT_MANAGE_JSON envelope and only
+                // clear local combat state on EXPLICIT success (envelope present + no error).
+                // A null parse means the call failed — preserve the encounter intact.
+                const text = typeof result === 'string'
+                    ? result
+                    : (result?.content?.find((c: any) => c?.type === 'text')?.text ?? '');
+                const parsed = extractEmbeddedJson<any>(text, 'COMBAT_MANAGE_JSON');
+
+                if (!parsed || parsed.error) {
+                    console.error('[QuickActionBar] Failed to end encounter (no success envelope):', parsed?.error ?? result);
+                    alert('Failed to end encounter. The combat is still active. Check console for details.');
+                    return; // Preserve the encounter — do NOT clear local combat state.
+                }
+
+                clearCombat(false); // Full clear including encounter ID — only after explicit success.
                 console.log('[QuickActionBar] Encounter ended:', activeEncounterId);
             } catch (e) {
                 console.error('[QuickActionBar] Failed to end encounter:', e);

@@ -236,6 +236,32 @@ function getResultText(result: any): string {
   return '';
 }
 
+/**
+ * Validate that a consolidated *_manage callTool actually succeeded.
+ *
+ * The router can resolve the promise yet return an in-band error payload (or a
+ * plain-text / malformed body that extractEmbeddedJson can't parse, yielding
+ * null). A resolved promise alone is NOT proof of success. Throws with a clear
+ * message on failure so callers abort BEFORE mutating local state.
+ */
+function assertManageSuccess(result: any, tag: string, opName: string): any {
+  const data = extractEmbeddedJson<any>(getResultText(result), tag);
+
+  // null => plain-text / error payload / malformed envelope. Treat as failure.
+  if (data === null || data === undefined) {
+    throw new Error(`${opName} failed: no parseable success payload`);
+  }
+  // In-band error payload (e.g. { error: '...' } or { success: false }).
+  if (data.error || data.success === false) {
+    throw new Error(data.error || `${opName} failed`);
+  }
+  return data;
+}
+
+function assertPartyManageSuccess(result: any, opName: string): any {
+  return assertManageSuccess(result, 'PARTY_MANAGE_JSON', opName);
+}
+
 function parseParty(data: any): Party | null {
   if (!data || !data.id) return null;
 
@@ -504,7 +530,9 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Deleting party:', partyId);
-          await mcpManager.gameStateClient.callTool('party_manage', { action: 'delete', partyId });
+          const result = await mcpManager.gameStateClient.callTool('party_manage', { action: 'delete', partyId });
+          // Validate the backend actually deleted before clobbering local state.
+          assertPartyManageSuccess(result, 'Delete party');
 
           // Clear from local state
           set((state) => ({
@@ -539,12 +567,13 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Adding member:', characterId, 'to party:', partyId);
-          await mcpManager.gameStateClient.callTool('party_manage', {
+          const result = await mcpManager.gameStateClient.callTool('party_manage', {
             action: 'add_member',
             partyId,
             characterId,
             role,
           });
+          assertPartyManageSuccess(result, 'Add member');
 
           // Refresh party details and unassigned characters
           await Promise.all([
@@ -569,11 +598,12 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Removing member:', characterId, 'from party:', partyId);
-          await mcpManager.gameStateClient.callTool('party_manage', {
+          const result = await mcpManager.gameStateClient.callTool('party_manage', {
             action: 'remove_member',
             partyId,
             characterId,
           });
+          assertPartyManageSuccess(result, 'Remove member');
 
           // Refresh party details and unassigned characters
           await Promise.all([
@@ -598,12 +628,13 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Updating member:', characterId, updates);
-          await mcpManager.gameStateClient.callTool('party_manage', {
+          const result = await mcpManager.gameStateClient.callTool('party_manage', {
             action: 'update_member',
             partyId,
             characterId,
             ...updates,
           });
+          assertPartyManageSuccess(result, 'Update member');
 
           // Refresh party details
           await get().syncPartyDetails(partyId);
@@ -625,11 +656,12 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Setting leader:', characterId, 'for party:', partyId);
-          await mcpManager.gameStateClient.callTool('party_manage', {
+          const result = await mcpManager.gameStateClient.callTool('party_manage', {
             action: 'set_leader',
             partyId,
             characterId,
           });
+          assertPartyManageSuccess(result, 'Set leader');
 
           // Refresh party details
           await get().syncPartyDetails(partyId);
@@ -651,11 +683,13 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Setting active character (POV):', characterId, 'for party:', partyId);
-          await mcpManager.gameStateClient.callTool('party_manage', {
+          const result = await mcpManager.gameStateClient.callTool('party_manage', {
             action: 'set_active',
             partyId,
             characterId,
           });
+          // Validate before switching POV so a failed call doesn't fake a switch.
+          assertPartyManageSuccess(result, 'Set active character');
 
           // Refresh party details
           await get().syncPartyDetails(partyId);
@@ -684,7 +718,9 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Deleting character:', characterId);
-          await mcpManager.gameStateClient.callTool('character_manage', { action: 'delete', characterId });
+          const result = await mcpManager.gameStateClient.callTool('character_manage', { action: 'delete', characterId });
+          // Validate the backend actually deleted before clearing the active character.
+          assertManageSuccess(result, 'CHARACTER_MANAGE_JSON', 'Delete character');
 
           // If this was the active character, clear it
           const { useGameStateStore } = await import('./gameStateStore');
@@ -717,11 +753,12 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Updating character:', characterId, updates);
-          await mcpManager.gameStateClient.callTool('character_manage', {
+          const result = await mcpManager.gameStateClient.callTool('character_manage', {
             action: 'update',
             characterId,
             ...updates,
           });
+          assertManageSuccess(result, 'CHARACTER_MANAGE_JSON', 'Update character');
 
           // Refresh party details to reflect changes
           const { activePartyId } = get();
@@ -767,8 +804,17 @@ export const usePartyStore = create<PartyState>()(
 
           console.log('[PartyStore] Syncing parties list...');
           const result = await mcpManager.gameStateClient.callTool('party_manage', { action: 'list' });
-          const data = extractEmbeddedJson<{ parties: any[]; count: number }>(getResultText(result), 'PARTY_MANAGE_JSON')
-            ?? { parties: [], count: 0 };
+          const data = extractEmbeddedJson<{ parties: any[]; count: number; error?: string }>(getResultText(result), 'PARTY_MANAGE_JSON');
+
+          // null => the response was plain-text / an error payload / malformed.
+          // Treat as a FAILURE: preserve prior parties state instead of wiping it
+          // to empty arrays. An in-band error payload is also a failure.
+          if (!data || data.error) {
+            const message = data?.error || 'Failed to sync parties (no parseable payload)';
+            console.error('[PartyStore] Sync parties failed, preserving existing state:', message);
+            set({ error: message });
+            return;
+          }
 
           const parties: Party[] = [];
           for (const partyData of data.parties || []) {
@@ -848,8 +894,15 @@ export const usePartyStore = create<PartyState>()(
 
           console.log('[PartyStore] Fetching unassigned characters...');
           const result = await mcpManager.gameStateClient.callTool('party_manage', { action: 'get_unassigned' });
-          const data = extractEmbeddedJson<{ characters: any[]; count: number }>(getResultText(result), 'PARTY_MANAGE_JSON')
-            ?? { characters: [], count: 0 };
+          const data = extractEmbeddedJson<{ characters: any[]; count: number; error?: string }>(getResultText(result), 'PARTY_MANAGE_JSON');
+
+          // null => plain-text / error / malformed response. Treat as FAILURE and
+          // preserve existing unassignedCharacters rather than clearing them.
+          if (!data || data.error) {
+            const message = data?.error || 'Failed to sync unassigned characters (no parseable payload)';
+            console.error('[PartyStore] Sync unassigned characters failed, preserving existing state:', message);
+            return;
+          }
 
           const characters: CharacterSummary[] = [];
           for (const charData of data.characters || []) {
@@ -890,6 +943,17 @@ export const usePartyStore = create<PartyState>()(
             // Remap to the flat PartyContext: leader/activeCharacter become names,
             // partyName comes from party.name, memberCount from members length.
             const activeCharacterName = data.activeCharacter?.name;
+            // Prefer a stable id to flag the active member: matching on display
+            // name alone marks every duplicate-named member active. The active
+            // character object carries an id in the documented shape; member rows
+            // may expose characterId/id. Fall back to name only when no id pair
+            // is available on both sides.
+            // TODO(name-collision): if the get_context member rows stop carrying
+            // an id, this falls back to name matching and duplicate names will
+            // again mark multiple members active. Heavy-lift fix = thread a stable
+            // member/character id through the router's get_context member payload.
+            const activeCharacterId =
+              data.activeCharacter?.id ?? data.activeCharacter?.characterId;
             return {
               partyId: data.party?.id || partyId,
               partyName: data.party?.name || 'Unknown Party',
@@ -897,14 +961,23 @@ export const usePartyStore = create<PartyState>()(
               leader: data.leader?.name,
               activeCharacter: activeCharacterName,
               summary: data.summary || '',
-              members: (data.members || []).map((m: any) => ({
-                name: m.name,
-                role: m.role,
-                class: m.class || m.characterClass || '',
-                level: m.level || 0,
-                hp: m.hp,
-                isActive: activeCharacterName ? m.name === activeCharacterName : false,
-              })),
+              members: (data.members || []).map((m: any) => {
+                const memberId = m.characterId ?? m.id;
+                const isActive =
+                  activeCharacterId != null && memberId != null
+                    ? memberId === activeCharacterId
+                    : activeCharacterName
+                      ? m.name === activeCharacterName
+                      : false;
+                return {
+                  name: m.name,
+                  role: m.role,
+                  class: m.class || m.characterClass || '',
+                  level: m.level || 0,
+                  hp: m.hp,
+                  isActive,
+                };
+              }),
             };
           }
 

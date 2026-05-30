@@ -597,12 +597,23 @@ export const useGameStateStore = create<GameState>()(
             const listResult = await mcpManager.gameStateClient.callTool('character_manage', { action: 'list' });
             console.log('[GameStateStore] Raw character_manage/list result:', listResult);
 
-            // character_manage embeds its payload in a <!-- CHARACTER_MANAGE_JSON --> envelope
+            // character_manage embeds its payload in a <!-- CHARACTER_MANAGE_JSON --> envelope.
+            // A null parse means the envelope was absent/malformed (plain-text or error
+            // payload) — NOT a legitimately empty roster. Treat null as a FAILURE: preserve
+            // existing party/activeCharacter/activeCharacterId instead of clobbering them with
+            // empty data, and skip the rest of the character-sync block.
             const listData = extractEmbeddedJson<{ characters: any[]; count: number }>(
               listResult?.content?.[0]?.text ?? '',
               'CHARACTER_MANAGE_JSON'
-            ) ?? { characters: [], count: 0 };
-            
+            );
+
+            if (!listData) {
+              console.warn('[GameStateStore] character_manage/list returned no parseable envelope — preserving existing party state');
+              // Keep activeCharId pointing at the stored selection so the detail
+              // sync below can still refresh the previously-known character.
+              throw new Error('character_manage/list returned no CHARACTER_MANAGE_JSON envelope');
+            }
+
             console.log('[GameStateStore] Parsed characters data:', listData);
             console.log('[GameStateStore] Found', listData.count || listData.characters?.length || 0, 'characters');
 
@@ -870,10 +881,18 @@ export const useGameStateStore = create<GameState>()(
           // ============================================
           try {
             const worldsResult = await mcpManager.gameStateClient.callTool('world_manage', { action: 'list' });
+            // A null parse means the WORLD_MANAGE_JSON envelope was absent/malformed
+            // (plain-text or error payload) — NOT a legitimately empty world list. Treat
+            // null as a FAILURE: preserve existing worlds/world/activeWorldId rather than
+            // clobbering them with empty data, and skip the world-sync block.
             const worldsData = extractEmbeddedJson<any>(
               worldsResult?.content?.[0]?.text ?? '',
               'WORLD_MANAGE_JSON'
-            ) ?? { worlds: [], count: 0 };
+            );
+            if (!worldsData) {
+              console.warn('[GameStateStore] world_manage/list returned no parseable envelope — preserving existing world state');
+              throw new Error('world_manage/list returned no WORLD_MANAGE_JSON envelope');
+            }
             const worlds = worldsData.worlds || [];
             set({ worlds });
 

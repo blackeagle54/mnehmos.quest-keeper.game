@@ -210,9 +210,19 @@ Description: [one atmospheric sentence]`;
             const tilesContent = tilesResult.content?.[0];
             if (tilesContent?.type === 'text') {
               const tilesData = extractEmbeddedJson<any>(tilesContent.text, 'WORLD_MAP_JSON');
-              structures = tilesData?.structures || [];
+              // null => the response was plain-text / an error payload / malformed,
+              // NOT a legitimately empty result. structureCount > 0 reported POIs,
+              // so a null parse here is a FAILURE: throw and let the catch below
+              // surface it instead of silently claiming "0 structures" succeeded.
+              if (!tilesData) {
+                throw new Error('Could not parse world_map tiles response');
+              }
+              // Envelope parsed: trust its (possibly-empty) structures array.
+              structures = Array.isArray(tilesData.structures) ? tilesData.structures : [];
               console.log('[WorldGen] Fetched structures:', structures.length);
               addLog(`Retrieved ${structures.length} structure details`, 'success');
+            } else {
+              throw new Error('Invalid response from world_map tiles');
             }
           } catch (e) {
             console.warn('[WorldGen] Failed to fetch structure details:', e);

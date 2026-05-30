@@ -56,7 +56,13 @@ export const LootPanel: React.FC<LootPanelProps> = ({ isOpen, onClose }) => {
       });
       const text = result?.content?.[0]?.text || '';
       const data = extractEmbeddedJson<any>(text, 'CORPSE_MANAGE_JSON');
-      setCorpses(data?.corpses || []);
+      // null = plain-text/error/malformed envelope (NOT a legitimately empty list).
+      // Treat as failure: preserve existing corpse state instead of clobbering it.
+      if (data === null) {
+        console.error('Failed to parse CORPSE_MANAGE_JSON (list_in_encounter):', text);
+        return;
+      }
+      setCorpses(data.corpses ?? []);
     } catch (error) {
       console.error('Failed to fetch corpses:', error);
     } finally {
@@ -73,7 +79,13 @@ export const LootPanel: React.FC<LootPanelProps> = ({ isOpen, onClose }) => {
       });
       const text = result?.content?.[0]?.text || '';
       const data = extractEmbeddedJson<any>(text, 'CORPSE_MANAGE_JSON');
-      setLootItems(data?.available || []);
+      // null = unparseable envelope (error/plain-text/malformed), not an empty inventory.
+      // Treat as failure: preserve prior loot/selection instead of faking an empty corpse.
+      if (data === null) {
+        console.error('Failed to parse CORPSE_MANAGE_JSON (get_inventory):', text);
+        return;
+      }
+      setLootItems(data.available ?? []);
       setSelectedCorpse(corpseId);
     } catch (error) {
       console.error('Failed to fetch loot:', error);
@@ -97,8 +109,24 @@ export const LootPanel: React.FC<LootPanelProps> = ({ isOpen, onClose }) => {
       const text = result?.content?.[0]?.text || '';
       const data = extractEmbeddedJson<any>(text, 'CORPSE_MANAGE_JSON');
 
+      // null = the loot call did not return a parseable success envelope
+      // (error/plain-text/malformed). Treat as failure: do NOT post a success
+      // message and do NOT clear the selection — surface the error and bail so
+      // the player can retry against the still-selected corpse.
+      if (data === null) {
+        console.error('Failed to parse CORPSE_MANAGE_JSON (loot):', text);
+        addMessage({
+          id: Date.now().toString(),
+          sender: 'system',
+          content: `❌ Loot failed: the server returned an unreadable response.`,
+          timestamp: Date.now(),
+          type: 'error'
+        });
+        return;
+      }
+
       // Log to chat
-      const items = data?.itemsLooted || [];
+      const items = data.itemsLooted ?? [];
       addMessage({
         id: Date.now().toString(),
         sender: 'system',
@@ -106,7 +134,7 @@ export const LootPanel: React.FC<LootPanelProps> = ({ isOpen, onClose }) => {
         timestamp: Date.now(),
         type: 'info'
       });
-      
+
       // Refresh
       await fetchCorpses();
       setSelectedCorpse(null);

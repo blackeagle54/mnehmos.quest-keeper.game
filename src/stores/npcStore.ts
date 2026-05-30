@@ -76,7 +76,15 @@ export const useNpcStore = create<NpcState>((set, _get) => ({
       });
 
       const data = parseNpcResponse<{ memories: NpcMemory[] }>(result);
-      set({ memories: data?.memories || [] });
+      // null => the NPC_MANAGE_JSON envelope was missing/malformed (plain-text
+      // or error payload), NOT an entity with zero memories. Treat as a failure:
+      // preserve existing memories rather than clobbering them with [].
+      if (data === null) {
+        console.warn('[npcStore] fetchRecentMemories: malformed/missing NPC_MANAGE_JSON envelope; preserving existing memories');
+        return;
+      }
+      // Envelope parsed successfully — apply the (possibly-empty) memories.
+      set({ memories: data.memories ?? [] });
     } catch (e) {
       console.warn('[npcStore] Failed to fetch recent memories:', e);
     } finally {
@@ -110,8 +118,14 @@ export const useNpcStore = create<NpcState>((set, _get) => ({
         }));
       }
 
-      // Update memories for selected NPC
-      set({ memories: histData?.memories || [] });
+      // Update memories for selected NPC.
+      // null => the get_history NPC_MANAGE_JSON envelope was missing/malformed,
+      // NOT zero history. Preserve existing memories instead of clobbering [].
+      if (histData === null) {
+        console.warn('[npcStore] fetchNpcHistory: malformed/missing NPC_MANAGE_JSON envelope for get_history; preserving existing memories');
+      } else {
+        set({ memories: histData.memories ?? [] });
+      }
     } catch (e) {
       console.warn('[npcStore] Failed to fetch NPC history:', e);
     } finally {
