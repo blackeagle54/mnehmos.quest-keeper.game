@@ -266,7 +266,12 @@ export class McpClient {
             const jsonLine = this.messageBuffer.substring(0, newlineIndex).trim();
             // Keep the rest in the buffer
             this.messageBuffer = this.messageBuffer.substring(newlineIndex + 1);
-            
+            // Refresh the offset against the just-advanced buffer NOW, before any
+            // branch below. Otherwise the non-JSON `continue` skips the refresh and
+            // the next iteration slices the shorter buffer at a stale offset,
+            // corrupting any frame glued behind a log line in the same chunk.
+            newlineIndex = this.messageBuffer.indexOf('\n');
+
             if (jsonLine) {
                 // Skip non-JSON log lines (MCP protocol requires only JSON-RPC on stdout)
                 if (!jsonLine.startsWith('{')) {
@@ -299,9 +304,8 @@ export class McpClient {
                     console.warn('[McpClient] Invalid JSON (first 500 chars):', jsonLine.substring(0, 500));
                 }
             }
-            
-            // Look for the next complete message
-            newlineIndex = this.messageBuffer.indexOf('\n');
+            // newlineIndex was already refreshed above, immediately after the
+            // buffer advance, so the loop re-enters with a correct offset.
         }
     }
 
