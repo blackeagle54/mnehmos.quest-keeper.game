@@ -1,7 +1,7 @@
 # Quest Keeper AI - Project Vision
 
-**Version:** 2.0
-**Last Updated:** December 3, 2024
+**Version:** 2.1
+**Last Updated:** May 30, 2026 — Phases 1–6 complete (session export incl. PDF, context condensing, batch-generation workflows)
 
 ---
 
@@ -116,12 +116,12 @@ Quest Keeper AI bridges the gap with:
 - ✅ Achievement tracking (Achievements tab)
 - ✅ Faction reputation with standing tiers (Reputation tab)
 
-### 🔧 In Progress (Phase 5 Partial)
-- 🔧 Session export (Markdown/PDF)
-- 🔧 Context condensing for long sessions
+### ✅ Complete (Phases 5 & 6)
+- ✅ Session export (Markdown + PDF)
+- ✅ Context condensing for long sessions
+- ✅ Batch generation workflows (workflow templates + Workflow Browser)
 
-### ⬜ Planned (Phase 6 & beyond)
-- ⬜ Batch generation workflows
+### ⬜ Planned (beyond the roadmap)
 - ⬜ Multiplayer foundation
 
 ---

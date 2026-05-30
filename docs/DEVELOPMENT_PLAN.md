@@ -1,8 +1,8 @@
 # Quest Keeper AI - Development Plan
 
-**Version:** 2.3
+**Version:** 2.4
 **Last Updated:** May 30, 2026
-**Status:** Active Development (Phase 3 & 4 Complete; Phase 5 90% — only PDF export remains)
+**Status:** Phases 1–6 Complete — roadmap feature work done (workflow template-YAML externalization remains as optional polish)
 
 ---
 
@@ -169,25 +169,25 @@ Quest Keeper AI combines:
    - ✅ Token-aware compression
    - ✅ Priority information
 
-3. **Session Export** 🔧 Partial
+3. **Session Export** ✅
    - ✅ JSON state available in stores
    - ✅ Character/quest/inventory data exportable
    - ✅ Markdown adventure log export
-   - ⬜ PDF character sheet export
+   - ✅ PDF character sheet export
    - ✅ Dedicated export UI
 
 **Deliverables:**
 1. ✅ Auto-save via Zustand persist
 2. ✅ Chat session management
-3. 🔧 `export_session` with formats (Markdown ✅; PDF ⬜)
+3. ✅ `export_session` with formats (Markdown ✅; PDF ✅ via pdfmake)
 4. ✅ Context condenser
 5. ✅ Explicit save/load file UI
 
 ---
 
-### Phase 6: Workflow Automation ⬜ NOT STARTED
+### Phase 6: Workflow Automation ✅ COMPLETE
 **Goal:** One prompt → complex generation
-**Status:** Not Started
+**Status:** Complete — engine PRs #42 (executor), #43 (template library + integrity guardrail), #44 (start_campaign runtime fix); game PR #14 (Workflow Browser UI)
 
 **Components:**
 1. **Batch Operations**
@@ -206,10 +206,10 @@ Quest Keeper AI combines:
    - Encounter generators
 
 **Deliverables:**
-1. ⬜ Batch tools in rpg-mcp
-2. ⬜ Workflow executor
-3. ⬜ Template YAML files
-4. ⬜ Workflow browser UI
+1. ✅ Batch tools in rpg-mcp (`batch_manage`: create_characters / create_npcs / distribute_items)
+2. ✅ Workflow executor (`execute_workflow` / `execute_sequence`, opt-in `autoExecute`, `{{stepId.prop}}` cross-step refs, dup-id guard, 10-step cap)
+3. 🔧 Template library shipped as a grounded in-code library (start_campaign, generate_settlement, populate_tavern, lotr_campaign, combat_encounter) with a per-step integrity guardrail + e2e execution tests; **YAML externalization deferred as optional polish**
+4. ✅ Workflow browser UI (Workflows tab + `workflowStore` over `batch_manage`, confirm-gated execute, dry-run preview)
 
 ---
 
@@ -329,4 +329,5 @@ Phase 6: 40% effort (Workflow browser)
 | May 24, 2026 | 2.1 | Phase 4 Enhanced Combat complete — combat log, click-to-move, AoE visualization |
 | May 29, 2026 | 2.2 | Phase 3 Progression complete — skill_manage / quest chains / achievement_manage / reputation_manage (engine) + Skills/Chains/Achievements/Reputation tabs (UI) |
 | May 30, 2026 | 2.3 | Phase 5 Session Management features landed — context condenser (contextCondenser.ts), save/load slots to file (save_manage + saveSlotIO.ts + SaveLoadPanel), Markdown adventure-log export (adventureLogExport.ts + ExportPanel); only PDF export remains |
+| May 30, 2026 | 2.4 | **Phases 5 & 6 complete.** PDF character-sheet export (characterSheetPdf.ts, #13). Phase 6 Workflow Automation: engine executor (#42), template library + integrity guardrail (#43), start_campaign runtime fix (#44), and the Workflow Browser UI (workflowStore + Workflows tab, #14). All feature phases (1–6) done; optional workflow-template YAML externalization remains. |
 
