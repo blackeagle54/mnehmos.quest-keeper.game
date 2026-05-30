@@ -216,9 +216,55 @@ describe('WorkflowBrowserView', () => {
     expect(screen.getByTestId('workflow-empty')).toBeInTheDocument();
   });
 
-  it('renders a no-active-character state without crashing', () => {
+  it('renders the no-active-character hint when there is no active character', () => {
     gameStateState = { activeCharacterId: null };
-    expect(() => render(<WorkflowBrowserView />)).not.toThrow();
+    render(<WorkflowBrowserView />);
+    // Don't just assert "no crash" — assert the hint element is actually present,
+    // so accidentally hiding it would fail the test.
+    expect(screen.getByTestId('workflow-no-character')).toBeInTheDocument();
+  });
+
+  it('does NOT render stale detail when it mismatches the current selection', () => {
+    // The selection moved to seed-world, but the (async) loaded detail still holds
+    // onboard-party. The stale detail + its Run actions must NOT render — executing
+    // here would run the WRONG template's steps with the wrong params.
+    workflowState = {
+      ...workflowState,
+      selectedTemplateId: 'seed-world',
+      detail: sampleDetail(), // detail.template.id === 'onboard-party'
+    };
+    render(<WorkflowBrowserView />);
+
+    expect(screen.queryByTestId('workflow-detail')).not.toBeInTheDocument();
+    expect(screen.queryByText(/create_party/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('workflow-param-partyName')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('workflow-run-button')).not.toBeInTheDocument();
+  });
+
+  it('renders a dry-run preview result (no executor summary) when autoExecuted is false', () => {
+    workflowState = {
+      ...workflowState,
+      selectedTemplateId: 'onboard-party',
+      detail: sampleDetail(),
+      lastRun: {
+        actionType: 'execute_workflow',
+        autoExecuted: false,
+        steps: [
+          { tool: 'create_party', resolved: true },
+          { tool: 'create_character', resolved: true },
+        ],
+      },
+    };
+    render(<WorkflowBrowserView />);
+    const panel = screen.getByTestId('workflow-run-result');
+    expect(panel).toBeInTheDocument();
+    // Dry-run heading appears...
+    expect(panel).toHaveTextContent(/Preview \(dry-run\)/i);
+    // ...but the executed-steps / failures summary is autoExecute-only and must NOT.
+    expect(panel).not.toHaveTextContent(/Executed steps:/i);
+    expect(panel).not.toHaveTextContent(/Failures:/i);
+    // Prepared steps still list.
+    expect(panel).toHaveTextContent(/create_party/i);
   });
 
   it('SAFETY: rapid double Execute clicks fire the destructive run at most once', () => {

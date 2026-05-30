@@ -118,7 +118,12 @@ export const WorkflowBrowserView: React.FC = () => {
     setConfirmingRun(false);
   }, [selectedTemplateId]);
 
-  const template: WorkflowTemplateDetail | null = detail?.template ?? null;
+  // Only treat the loaded detail as valid when it matches the CURRENT selection.
+  // selectedTemplateId updates synchronously on click while `detail` loads async,
+  // so during the load window (or after a stale response) detail can lag the
+  // selection; rendering/running a mismatched template would execute the wrong one.
+  const template: WorkflowTemplateDetail | null =
+    detail?.template && detail.template.id === selectedTemplateId ? detail.template : null;
   const requiredParams = template?.requiredParams ?? [];
 
   const handleSelect = React.useCallback(

@@ -170,6 +170,13 @@ function toErrorMessage(err: unknown, fallback: string): string {
  * mutating tools: lazy, fire-and-forget, and each leg guarded so a sync failure
  * never bubbles into the caller (the run itself already succeeded). Fired from a
  * non-blocking context so the store's `pending`/`isLoading` already settled.
+ *
+ * NOTE on error visibility: syncState()/syncParties() catch their OWN failures
+ * internally (they don't reject), so the `.catch` below only ever fires on a
+ * dynamic-import failure. A failed refresh therefore leaves the local view stale
+ * without a banner — accepted here because the server mutation already succeeded
+ * and the next sync/refresh reconciles it. Surfacing it would require changing
+ * those shared stores' error semantics (out of scope for this store).
  */
 function resyncAfterRun(): void {
   // gameState is the POV source of truth; force the sync (bypass the rate limit)
@@ -190,6 +197,11 @@ function resyncAfterRun(): void {
 export const useWorkflowStore = create<WorkflowState>()(
   persist(
     (set) => {
+      // Monotonic token for loadDetail: a newer call bumps it, so an older (slower)
+      // response can detect it has been superseded by a newer selection and bow out
+      // (the project's request-version staleness guard).
+      let detailRequestSeq = 0;
+
       // isLoading is derived from `pending > 0` so overlapping loads keep
       // isLoading true until ALL of them resolve.
       const beginRequest = () =>
@@ -253,6 +265,8 @@ export const useWorkflowStore = create<WorkflowState>()(
 
         loadDetail: async (templateId) => {
           if (!templateId) return;
+          // Claim a token for THIS request; a later loadDetail will bump it past us.
+          const seq = ++detailRequestSeq;
           beginRequest();
           try {
             const { mcpManager } = await import('../services/mcpClient');
@@ -260,6 +274,12 @@ export const useWorkflowStore = create<WorkflowState>()(
               action: 'get_template',
               templateId,
             });
+
+            // STALENESS: if a newer loadDetail superseded this one, drop the whole
+            // response — set neither detail NOR error from a stale request, so a
+            // slow response for an old selection can't clobber the current detail.
+            if (seq !== detailRequestSeq) return;
+
             const data = parseBatchResponse<WorkflowDetailResult>(result);
 
             // Treat a null-parse / error-envelope / success:false payload as a
@@ -270,9 +290,21 @@ export const useWorkflowStore = create<WorkflowState>()(
               return;
             }
 
+            // Even on success:true, require the template object shape. A drifted
+            // payload without `template` must NOT clobber a populated detail
+            // (mirrors loadTemplates' array-shape guard).
+            if (!data!.template || typeof data!.template !== 'object') {
+              set({ error: 'Malformed template payload' });
+              return;
+            }
+
             set({ detail: data });
           } catch (err) {
-            set({ error: toErrorMessage(err, 'Failed to load workflow template') });
+            // Only surface the error if THIS request is still current — a stale
+            // request's rejection must not clobber the live template's state.
+            if (seq === detailRequestSeq) {
+              set({ error: toErrorMessage(err, 'Failed to load workflow template') });
+            }
           } finally {
             endRequest();
           }

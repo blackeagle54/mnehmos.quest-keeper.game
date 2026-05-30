@@ -92,6 +92,17 @@ function sampleDetailPayload() {
 // import; a single extra macrotask tick lets those settle before we assert.
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
+/** A manually-settleable promise, for driving overlapping in-flight requests. */
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  let reject!: (e: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('workflowStore', () => {
   beforeEach(() => {
     useWorkflowStore.setState({
@@ -222,6 +233,64 @@ describe('workflowStore', () => {
       expect(s.error).toBe('No template found for onboard-party');
       expect(s.detail?.template?.steps).toHaveLength(2);
     });
+
+    it('treats a success:true payload WITHOUT a template as a failure (no clobber)', async () => {
+      // loadTemplates already guards a drifted "success but no array" payload; loadDetail
+      // must symmetrically reject a success:true with no `template` rather than storing it.
+      useWorkflowStore.setState({ detail: sampleDetailPayload() as any });
+
+      callTool.mockResolvedValueOnce(
+        wrapResponse({ success: true, actionType: 'get_template' })
+      );
+
+      await useWorkflowStore.getState().loadDetail('onboard-party');
+
+      const s = useWorkflowStore.getState();
+      expect(s.error).toBeTruthy();
+      // The previously-populated detail must NOT be replaced by a template-less payload.
+      expect(s.detail?.template?.id).toBe('onboard-party');
+      expect(s.detail?.template?.steps).toHaveLength(2);
+    });
+
+    it('drops a STALE loadDetail response so it cannot clobber a newer selection', async () => {
+      // Two in-flight loadDetail calls. The OLDER (alpha) resolves LAST; because a
+      // newer loadDetail (beta) superseded it, its result must be discarded —
+      // otherwise the detail desyncs from the user's current selection (an ordering
+      // race). We start the two loads with a flush between them so each call's lazy
+      // `import('../services/mcpClient')` settles in turn (concurrent dynamic imports
+      // race against the module mock), which also makes the callTool order match the
+      // mockReturnValueOnce queue.
+      const slowA = deferred<unknown>();
+      const fastB = deferred<unknown>();
+      callTool.mockReturnValueOnce(slowA.promise).mockReturnValueOnce(fastB.promise);
+
+      const pA = useWorkflowStore.getState().loadDetail('alpha'); // older → seq N
+      await flush(); // A reaches its callTool and is now awaiting slowA
+      const pB = useWorkflowStore.getState().loadDetail('beta'); // newer → seq N+1
+      await flush(); // B reaches its callTool and is now awaiting fastB
+
+      // B (the newer request) resolves first → detail = beta.
+      fastB.resolve(
+        wrapResponse({
+          success: true,
+          actionType: 'get_template',
+          template: { id: 'beta', name: 'Beta', steps: [], requiredParams: [] },
+        })
+      );
+      await pB;
+      expect(useWorkflowStore.getState().detail?.template?.id).toBe('beta');
+
+      // A (the older request) resolves LAST → must be dropped; detail stays beta.
+      slowA.resolve(
+        wrapResponse({
+          success: true,
+          actionType: 'get_template',
+          template: { id: 'alpha', name: 'Alpha', steps: [], requiredParams: [] },
+        })
+      );
+      await pA;
+      expect(useWorkflowStore.getState().detail?.template?.id).toBe('beta');
+    });
   });
 
   describe('runWorkflow (autoExecute:true)', () => {
@@ -351,14 +420,6 @@ describe('workflowStore', () => {
 
   describe('in-flight counter (isLoading derived from pending)', () => {
     it('keeps isLoading true until BOTH overlapping loads resolve', async () => {
-      const deferred = <T,>() => {
-        let resolve!: (v: T) => void;
-        const promise = new Promise<T>((r) => {
-          resolve = r;
-        });
-        return { promise, resolve };
-      };
-
       const first = deferred<unknown>();
       const second = deferred<unknown>();
       callTool.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
@@ -384,13 +445,37 @@ describe('workflowStore', () => {
       expect(useWorkflowStore.getState().isLoading).toBe(false);
     });
 
-    it('never drives pending below zero', async () => {
-      callTool.mockResolvedValue(
+    it('balances pending across an overlapping success + rejection (never leaks, never negative)', async () => {
+      // Exercise the endRequest accounting under MIXED outcomes: a resolved request
+      // and a REJECTED one overlapping. Each must run endRequest exactly once (the
+      // rejection path goes through finally too), so pending returns to exactly 0 and
+      // never goes negative. (The Math.max(0, …) floor in endRequest is a defensive
+      // guard that the balanced public begin/end pairing can't drive negative, so we
+      // assert the observable invariant — pending settles at 0 — under overlap.)
+      const okp = deferred<unknown>();
+      const errp = deferred<unknown>();
+      // The store awaits errp.promise inside loadDetail's try/catch (it IS handled);
+      // attach a no-op catch so rejecting it can never trip a spurious
+      // unhandled-rejection regardless of when the store's await attaches.
+      errp.promise.catch(() => {});
+      callTool.mockReturnValueOnce(okp.promise).mockReturnValueOnce(errp.promise);
+
+      const p1 = useWorkflowStore.getState().loadTemplates();
+      const p2 = useWorkflowStore.getState().loadDetail('onboard-party');
+      expect(useWorkflowStore.getState().pending).toBe(2);
+
+      okp.resolve(
         wrapResponse({ success: true, actionType: 'list_templates', templates: sampleTemplates() })
       );
-      await useWorkflowStore.getState().loadTemplates();
-      expect(useWorkflowStore.getState().pending).toBe(0);
-      expect(useWorkflowStore.getState().isLoading).toBe(false);
+      await p1;
+      await flush(); // let loadDetail reach its `await callTool` before we reject it
+
+      errp.reject(new Error('boom'));
+      await p2;
+
+      const s = useWorkflowStore.getState();
+      expect(s.pending).toBe(0);
+      expect(s.isLoading).toBe(false);
     });
   });
 
