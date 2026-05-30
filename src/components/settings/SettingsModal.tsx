@@ -4,6 +4,7 @@ import { open } from '@tauri-apps/plugin-shell';
 import { appLogDir } from '@tauri-apps/api/path';
 import { mkdir } from '@tauri-apps/plugin-fs';
 import { SaveLoadPanel } from './SaveLoadPanel';
+import { ExportPanel } from './ExportPanel';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -191,6 +192,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             📂 OPEN LOG FOLDER
                         </button>
                     </div>
+
+                    {/* Adventure Log Export */}
+                    <ExportPanel />
                 </div>
 
                 <div className="mt-6 flex justify-end border-t border-terminal-green-dim pt-4">
