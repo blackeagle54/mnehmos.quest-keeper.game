@@ -3,7 +3,7 @@ import { CreatureSize, findNearestOpenTile, getElevationAt } from '../utils/grid
 import { mcpManager } from '../services/mcpClient';
 import { useGameStateStore } from './gameStateStore';
 
-import { parseMcpResponse, debounce, extractEmbeddedStateJson } from '../utils/mcpUtils';
+import { parseMcpResponse, debounce, extractEmbeddedStateJson, extractEmbeddedJson } from '../utils/mcpUtils';
 import type { CombatLogEntry, CombatLogEntryInput } from '../utils/combatLog';
 import { deriveCombatLogEntries } from '../utils/combatLog';
 import type { Point } from '../utils/aoe';
@@ -761,32 +761,42 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       
       const { activeEncounterSessionId } = get();
       
-      const result = await mcpManager.combatClient.callTool('get_encounter_state', {
+      // Migrated: get_encounter_state -> combat_manage / get (COMBAT_MANAGE_JSON envelope).
+      // sessionId is derived server-side from the session context; it is harmless to
+      // pass (stripped by the consolidated GetSchema) and kept for back-compat.
+      const result = await mcpManager.combatClient.callTool('combat_manage', {
+        action: 'get',
         encounterId: activeEncounterId,
         sessionId: activeEncounterSessionId || 'default-session' // Use stored session ID or fallback
       });
 
       console.log('[syncCombatState] Raw result:', result);
 
-      // NEW: get_encounter_state now returns JSON directly!
-      const data = parseMcpResponse<EncounterStateJson | null>(result, null);
-      
+      // The engine wraps the encounter state in a <!-- COMBAT_MANAGE_JSON ... -->
+      // envelope. extractResultData spreads the full STATE_JSON (encounterId,
+      // round, currentTurn, turnOrder, participants[], terrain, props, gridBounds)
+      // at top level, so the embedded payload is directly EncounterStateJson-shaped.
+      const text = typeof result === 'string'
+        ? result
+        : (result?.content?.find((c: any) => c?.type === 'text')?.text ?? '');
+      const data = extractEmbeddedJson<EncounterStateJson>(text, 'COMBAT_MANAGE_JSON');
+
       if (data && data.participants) {
         console.log('[syncCombatState] Parsed encounter data:', data);
-        
+
         // Use the new updateFromStateJson method
         get().updateFromStateJson(data);
 
         // NOTE: Dead creature skipping is handled by backend's nextTurnWithConditions()
         // No frontend auto-skip needed
 
-      } else if (typeof data === 'string') {
-        // Fallback: check if it's text with embedded JSON
-        const embedded = extractEmbeddedStateJson(data);
+      } else if (text) {
+        // Fallback: tolerate the legacy raw STATE_JSON envelope if present.
+        const embedded = extractEmbeddedStateJson(text);
         if (embedded) {
           get().updateFromStateJson(embedded);
         } else {
-          console.warn('[syncCombatState] Response is text without embedded JSON');
+          console.warn('[syncCombatState] Response had no COMBAT_MANAGE_JSON / STATE_JSON envelope');
         }
       } else {
         console.warn('[syncCombatState] No valid data in response');
@@ -872,7 +882,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       return;
     }
     try {
-      await mcpManager.combatClient.callTool('execute_combat_action', {
+      // Migrated: execute_combat_action -> combat_action. The legacy 'action'
+      // value ('move') is also the router selector; arg names are unchanged
+      // (actorId stays actorId, targetPosition stays targetPosition).
+      await mcpManager.combatClient.callTool('combat_action', {
         encounterId: activeEncounterId,
         action: 'move',
         actorId: entityId,
@@ -908,9 +921,17 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   
   syncAuras: async () => {
     try {
-      const result = await mcpManager.combatClient.callTool('get_active_auras', {});
-      const data = parseMcpResponse<any>(result, null);
-      
+      // Migrated: get_active_auras -> aura_manage / list (AURA_MANAGE_JSON envelope).
+      const result = await mcpManager.combatClient.callTool('aura_manage', { action: 'list' });
+      const text = typeof result === 'string'
+        ? result
+        : (result?.content?.find((c: any) => c?.type === 'text')?.text ?? '');
+      // Envelope payload: { success, actionType:'list', count, auras:[{ id, spellName,
+      // ownerId, radius, affectsAllies, affectsEnemies, ... }] }. No field renames;
+      // requiresConcentration is not emitted per-item, so the `?? false` guard below
+      // keeps the prior default.
+      const data = extractEmbeddedJson<any>(text, 'AURA_MANAGE_JSON');
+
       if (data?.auras && Array.isArray(data.auras)) {
         // Map backend aura format to frontend format
         const auras: Aura[] = data.auras.map((a: any) => ({

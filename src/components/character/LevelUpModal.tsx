@@ -29,8 +29,9 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({
     setIsSubmitting(true);
     setError(null);
     try {
-      // Call MCP Tool
-      await mcpManager.gameStateClient.callTool('level_up', {
+      // Call MCP Tool (consolidated: legacy level_up -> character_manage/level_up)
+      await mcpManager.gameStateClient.callTool('character_manage', {
+        action: 'level_up',
         characterId,
         hpIncrease: hpIncrease || undefined,
         targetLevel: currentLevel + 1

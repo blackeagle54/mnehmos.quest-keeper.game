@@ -99,7 +99,7 @@ describe('combatStore — recordCombatLog (live pipeline)', () => {
         },
       ],
     };
-    recordCombatLog('execute_combat_action', result);
+    recordCombatLog('combat_action', result);
 
     const log = useCombatStore.getState().combatLog;
     expect(log).toHaveLength(1);
@@ -119,7 +119,7 @@ describe('combatStore — recordCombatLog (live pipeline)', () => {
   });
 
   it('is a no-op for pre-formatted text responses without structured data', () => {
-    recordCombatLog('execute_combat_action', {
+    recordCombatLog('combat_action', {
       content: [{ type: 'text', text: '⚔️ HIT! Hero strikes Goblin!' }],
     });
     expect(useCombatStore.getState().combatLog).toEqual([]);
@@ -137,9 +137,9 @@ describe('combatStore — requestMove (click-to-move) [COMBAT-002]', () => {
     });
   });
 
-  it('issues an execute_combat_action move for the entity to the target MCP tile', async () => {
+  it('issues an combat_action move for the entity to the target MCP tile', async () => {
     await useCombatStore.getState().requestMove('hero-1', 12, 8);
-    expect(callToolMock).toHaveBeenCalledWith('execute_combat_action', {
+    expect(callToolMock).toHaveBeenCalledWith('combat_action', {
       encounterId: 'enc-1',
       action: 'move',
       actorId: 'hero-1',
@@ -151,13 +151,13 @@ describe('combatStore — requestMove (click-to-move) [COMBAT-002]', () => {
     // viz (2,_,-2) → mcp tile (12, 8); requesting a move to that same tile is a no-op.
     useCombatStore.setState({ entities: [{ id: 'hero-1', position: { x: 2, y: 0.4, z: -2 } }] as any });
     await useCombatStore.getState().requestMove('hero-1', 12, 8);
-    expect(callToolMock).not.toHaveBeenCalledWith('execute_combat_action', expect.anything());
+    expect(callToolMock).not.toHaveBeenCalledWith('combat_action', expect.anything());
   });
 
   it('does nothing when there is no active encounter', async () => {
     useCombatStore.setState({ activeEncounterId: null });
     await useCombatStore.getState().requestMove('hero-1', 12, 8);
-    expect(callToolMock).not.toHaveBeenCalledWith('execute_combat_action', expect.anything());
+    expect(callToolMock).not.toHaveBeenCalledWith('combat_action', expect.anything());
   });
 });
 

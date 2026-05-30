@@ -179,8 +179,9 @@ export const WorldEnvironmentForm: React.FC<WorldEnvironmentFormProps> = ({ onCl
         moon_phase: formData.moonPhase,
       };
 
-      await mcpManager.gameStateClient.callTool('update_world_environment', {
-        worldId: activeWorldId,
+      await mcpManager.gameStateClient.callTool('world_manage', {
+        action: 'update',
+        id: activeWorldId,
         environment,
       });
 

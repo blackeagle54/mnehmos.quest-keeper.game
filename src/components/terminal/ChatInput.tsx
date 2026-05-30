@@ -5,6 +5,7 @@ import { useGameStateStore } from '../../stores/gameStateStore';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore, ActiveTab, ALL_TABS } from '../../stores/uiStore';
 import { setPlaytestMode, isPlaytestModeEnabled } from '../../services/llm/contextBuilder';
+import { extractEmbeddedJson } from '../../utils/mcpUtils';
 
 // Slash command result interface
 interface CommandResult {
@@ -215,7 +216,8 @@ export const ChatInput: React.FC = () => {
 
         // Only fetch context if we have at least a world or character
         if (gameState.activeWorldId || gameState.activeCharacter) {
-            const contextResult = await mcpManager.gameStateClient.callTool('get_narrative_context', {
+            const contextResult = await mcpManager.gameStateClient.callTool('session_manage', {
+                action: 'get_context',
                 worldId: gameState.activeWorldId || 'unknown',
                 characterId: gameState.activeCharacter?.id,
                 encounterId: combatState.activeEncounterId || undefined,
@@ -556,16 +558,16 @@ export const ChatInput: React.FC = () => {
       // === CHARACTER COMMANDS ===
       case 'characters': {
         try {
-          const result = await mcpManager.gameStateClient.callTool('list_characters', {});
-          const text = result?.content?.[0]?.text || '[]';
-          
-          let chars;
-          try {
-            chars = JSON.parse(text);
-          } catch {
-            return { content: text };
+          const result = await mcpManager.gameStateClient.callTool('character_manage', { action: 'list' });
+          const text = result?.content?.[0]?.text || '';
+
+          // character_manage/list embeds { characters: [...] } under CHARACTER_MANAGE_JSON
+          const parsed = extractEmbeddedJson<any>(text, 'CHARACTER_MANAGE_JSON');
+          if (!parsed) {
+            return { content: text || `*No characters found*` };
           }
-  
+          const chars = parsed.characters;
+
           if (!Array.isArray(chars) || chars.length === 0) {
             return { content: `*No characters found*\n\nUse the AI to create a character: "Create a fighter named Valeros"` };
           }
@@ -591,17 +593,13 @@ export const ChatInput: React.FC = () => {
             return { content: `No character ID provided and no active character.\n\nUsage: \`/character <id>\` or set an active character first.`, type: 'error' };
           }
   
-          const result = await mcpManager.gameStateClient.callTool('get_character', { id: charId });
-          const text = result?.content?.[0]?.text || 'null';
+          const result = await mcpManager.gameStateClient.callTool('character_manage', { action: 'get', characterId: charId });
+          const text = result?.content?.[0]?.text || '';
           
-          let char;
-          try {
-            char = JSON.parse(text);
-          } catch {
-            return { content: text };
-          }
-  
-          if (!char) {
+          // character_manage/get embeds the character object directly under CHARACTER_MANAGE_JSON
+          const char = extractEmbeddedJson<any>(text, 'CHARACTER_MANAGE_JSON');
+
+          if (!char || char.error) {
             return { content: `Character not found: ${charId}`, type: 'error' };
           }
   
@@ -686,19 +684,18 @@ export const ChatInput: React.FC = () => {
             return { content: `No active character. Select a character first.`, type: 'error' };
           }
   
-          // Use get_inventory_detailed for full item names
-          const result = await mcpManager.gameStateClient.callTool('get_inventory_detailed', { characterId: charId });
-          const text = result?.content?.[0]?.text || '{}';
+          // Use inventory_manage/get_detailed for full item names
+          const result = await mcpManager.gameStateClient.callTool('inventory_manage', { action: 'get_detailed', characterId: charId });
+          const text = result?.content?.[0]?.text || '';
           
-          let data;
-          try {
-            data = JSON.parse(text);
-          } catch {
-            return { content: text };
+          // inventory_manage/get_detailed embeds { inventory: [{item, quantity, equipped}], totalWeight, capacity }
+          const data = extractEmbeddedJson<any>(text, 'INVENTORY_MANAGE_JSON');
+          if (!data) {
+            return { content: text || `*Inventory is empty*` };
           }
-  
-          // Backend returns {items: [{item: {...}, quantity, equipped}, ...], equipment: {...}, totalWeight, capacity}
-          const items = data.items || [];
+
+          // Consolidated tool returns items under `inventory` (legacy was `items`)
+          const items = data.inventory || data.items || [];
           
           if (!Array.isArray(items) || items.length === 0) {
             return { content: `*Inventory is empty*` };
@@ -735,16 +732,16 @@ export const ChatInput: React.FC = () => {
             return { content: `No active character. Select a character first.`, type: 'error' };
           }
   
-          const result = await mcpManager.gameStateClient.callTool('get_quest_log', { characterId: charId });
-          const text = result?.content?.[0]?.text || '[]';
+          const result = await mcpManager.gameStateClient.callTool('quest_manage', { action: 'get_log', characterId: charId });
+          const text = result?.content?.[0]?.text || '';
           
-          let quests;
-          try {
-            quests = JSON.parse(text);
-          } catch {
-            return { content: text };
+          // quest_manage/get_log embeds { quests: [...] } under QUEST_MANAGE_JSON
+          const logData = extractEmbeddedJson<any>(text, 'QUEST_MANAGE_JSON');
+          if (!logData || logData.error) {
+            return { content: text || `*No active quests*` };
           }
-  
+          const quests = logData.quests;
+
           if (!Array.isArray(quests) || quests.length === 0) {
             return { content: `*No active quests*\n\nAsk the AI to create a quest.` };
           }
@@ -777,17 +774,13 @@ export const ChatInput: React.FC = () => {
         }
   
         try {
-          const result = await mcpManager.gameStateClient.callTool('get_encounter_state', { encounterId });
-          const text = result?.content?.[0]?.text || 'null';
-          
-          let encounter;
-          try {
-            encounter = JSON.parse(text);
-          } catch {
-            return { content: text };
-          }
-  
-          if (!encounter) {
+          const result = await mcpManager.gameStateClient.callTool('combat_manage', { action: 'get', encounterId });
+          const text = result?.content?.[0]?.text || '';
+
+          // combat_manage/get embeds encounter state (round, participants, currentTurn) under COMBAT_MANAGE_JSON
+          const encounter = extractEmbeddedJson<any>(text, 'COMBAT_MANAGE_JSON');
+
+          if (!encounter || encounter.error) {
             return { content: `Could not retrieve encounter state`, type: 'error' };
           }
   
@@ -838,25 +831,27 @@ export const ChatInput: React.FC = () => {
   
       case 'worlds': {
         try {
-          const result = await mcpManager.gameStateClient.callTool('list_worlds', {});
-          const text = result?.content?.[0]?.text || '[]';
-          
-          let worlds;
-          try {
-            worlds = JSON.parse(text);
-          } catch {
-            return { content: text };
+          const result = await mcpManager.gameStateClient.callTool('world_manage', { action: 'list' });
+          const text = result?.content?.[0]?.text || '';
+
+          // world_manage/list embeds { worlds: [{ id, name, seed, dimensions:{width,height} }] }
+          const listData = extractEmbeddedJson<any>(text, 'WORLD_MANAGE_JSON');
+          if (!listData || listData.error) {
+            return { content: text || `*No worlds created*` };
           }
-  
+          const worlds = listData.worlds;
+
           if (!Array.isArray(worlds) || worlds.length === 0) {
             return { content: `*No worlds created*\n\nAsk the AI: "Create a new world called Eldoria"` };
           }
-  
+
           let output = `## Worlds (${worlds.length})\n\n`;
           for (const world of worlds) {
+            const width = world.dimensions?.width ?? world.width;
+            const height = world.dimensions?.height ?? world.height;
             output += `### ${world.name}\n`;
             output += `- **ID:** \`${world.id}\`\n`;
-            output += `- **Size:** ${world.width}x${world.height}\n`;
+            output += `- **Size:** ${width}x${height}\n`;
             output += `- **Seed:** ${world.seed}\n\n`;
           }
           return { content: output };
@@ -872,17 +867,14 @@ export const ChatInput: React.FC = () => {
         }
   
         try {
-          const result = await mcpManager.gameStateClient.callTool('get_world', { id: worldId });
-          const text = result?.content?.[0]?.text || 'null';
-          
-          let world;
-          try {
-            world = JSON.parse(text);
-          } catch {
-            return { content: text };
-          }
-  
-          if (!world) {
+          const result = await mcpManager.gameStateClient.callTool('world_manage', { action: 'get', id: worldId });
+          const text = result?.content?.[0]?.text || '';
+
+          // world_manage/get embeds { world: {...} } under WORLD_MANAGE_JSON
+          const getData = extractEmbeddedJson<any>(text, 'WORLD_MANAGE_JSON');
+          const world = getData?.world;
+
+          if (!getData || getData.error || !world) {
             return { content: `World not found: ${worldId}`, type: 'error' };
           }
   
@@ -910,14 +902,26 @@ export const ChatInput: React.FC = () => {
           if (command === 'adv') expression = expression.replace(/(\d*)d20/i, '2d20kh1');
           if (command === 'dis') expression = expression.replace(/(\d*)d20/i, '2d20kl1');
   
-          const result = await mcpManager.gameStateClient.callTool('dice_roll', { 
+          const result = await mcpManager.gameStateClient.callTool('math_manage', {
+            action: 'roll',
             expression,
             exportFormat: 'steps'
           });
           const text = result?.content?.[0]?.text || '';
-          
+
+          // math_manage/roll embeds { total, rolls, seed, formatted } under MATH_MANAGE_JSON
+          // (legacy renames: total = sum, rolls = per-die steps)
+          const rollData = extractEmbeddedJson<any>(text, 'MATH_MANAGE_JSON');
+
           let output = `## 🎲 ${args.trim()} ${command !== 'roll' ? `(${command})` : ''}\n\n`;
-          output += '```\n' + text + '\n```';
+          if (rollData && !rollData.error) {
+            const rolls = Array.isArray(rollData.rolls) ? rollData.rolls.join('\n') : (rollData.rolls ?? '');
+            output += `**Result:** ${rollData.total}\n\n`;
+            output += '```\n' + rolls + '\n```';
+          } else {
+            // Fallback: render the raw formatted text
+            output += '```\n' + text + '\n```';
+          }
           return { content: output };
         } catch (error: any) {
           return { content: `Dice roll error: ${error.message}`, type: 'error' };
@@ -929,9 +933,10 @@ export const ChatInput: React.FC = () => {
           const worldId = gameState.activeWorldId;
           if (!worldId) return { content: `No active world. Select a world first.`, type: 'error' };
   
-          const result = await mcpManager.gameStateClient.callTool('get_secrets_for_context', { worldId });
+          // secret_manage/get_context returns RAW JSON (no embedded envelope), so JSON.parse stays.
+          const result = await mcpManager.gameStateClient.callTool('secret_manage', { action: 'get_context', worldId });
           const text = result?.content?.[0]?.text || '{}';
-          
+
           let secrets;
           try { secrets = JSON.parse(text); } catch { return { content: text }; }
   
@@ -983,24 +988,27 @@ export const ChatInput: React.FC = () => {
         const disadvantage = argLower.includes('dis') || argLower.includes('disadvantage');
         
         try {
-          const result = await mcpManager.gameStateClient.callTool('roll_skill_check', { 
-            characterId: charId,
-            skill: command.replace('-', '_'), // Convert kebab-case to snake_case
-            advantage,
-            disadvantage
+          // No dedicated auto-proficiency skill-check tool exists anymore; roll a raw
+          // d20 via math_manage/roll. The engine does NOT auto-apply ability/proficiency
+          // modifiers, so the result is the unmodified d20 (add bonuses manually).
+          const expression = advantage ? '2d20kh1' : disadvantage ? '2d20kl1' : '1d20';
+          const result = await mcpManager.gameStateClient.callTool('math_manage', {
+            action: 'roll',
+            expression
           });
-          const text = result?.content?.[0]?.text || '{}';
-          const data = JSON.parse(text);
-          
+          const text = result?.content?.[0]?.text || '';
+          const data = extractEmbeddedJson<any>(text, 'MATH_MANAGE_JSON');
+          if (!data || data.error) {
+            return { content: `Skill check error: could not parse roll result`, type: 'error' };
+          }
+
           const skillName = command.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
           let output = `## 🎲 ${skillName} Check\n\n`;
-          output += `**${data.character}** rolls: **${data.roll}**\n\n`;
-          output += `| d20 | ${data.breakdown?.abilityMod >= 0 ? '+' : ''}${data.breakdown?.abilityMod || 0} | Prof ${data.breakdown?.proficiencyBonus || 0} | = **${data.roll}** |\n`;
-          output += `|-----|-----|------|-------|\n\n`;
-          if (data.proficient) output += `✓ Proficient${data.expertise ? ' (Expertise x2)' : ''}\n`;
+          output += `Raw d20: **${data.total}**\n\n`;
+          output += `*Add ability modifier + proficiency manually (auto-bonus tool no longer available).*\n`;
           if (advantage) output += `⬆️ Advantage\n`;
           if (disadvantage) output += `⬇️ Disadvantage\n`;
-          
+
           return { content: output };
         } catch (error: any) {
           return { content: `Skill check error: ${error.message}`, type: 'error' };
@@ -1022,18 +1030,25 @@ export const ChatInput: React.FC = () => {
         const disadvantage = argLower.includes('dis');
         
         try {
-          const result = await mcpManager.gameStateClient.callTool('roll_ability_check', { 
-            characterId: charId,
-            ability: command,
-            advantage,
-            disadvantage
+          // No dedicated auto-modifier ability-check tool exists anymore; roll a raw
+          // d20 via math_manage/roll (modifier must be added manually).
+          const expression = advantage ? '2d20kh1' : disadvantage ? '2d20kl1' : '1d20';
+          const result = await mcpManager.gameStateClient.callTool('math_manage', {
+            action: 'roll',
+            expression
           });
-          const text = result?.content?.[0]?.text || '{}';
-          const data = JSON.parse(text);
-          
+          const text = result?.content?.[0]?.text || '';
+          const data = extractEmbeddedJson<any>(text, 'MATH_MANAGE_JSON');
+          if (!data || data.error) {
+            return { content: `Ability check error: could not parse roll result`, type: 'error' };
+          }
+
           let output = `## 🎲 ${command.toUpperCase()} Check\n\n`;
-          output += `**${data.character}** rolls: **${data.roll}**\n`;
-          
+          output += `Raw d20: **${data.total}**\n`;
+          output += `\n*Add ${command.toUpperCase()} modifier manually (auto-bonus tool no longer available).*\n`;
+          if (advantage) output += `⬆️ Advantage\n`;
+          if (disadvantage) output += `⬇️ Disadvantage\n`;
+
           return { content: output };
         } catch (error: any) {
           return { content: `Ability check error: ${error.message}`, type: 'error' };
@@ -1055,19 +1070,25 @@ export const ChatInput: React.FC = () => {
         const disadvantage = parts.includes('dis');
         
         try {
-          const result = await mcpManager.gameStateClient.callTool('roll_saving_throw', { 
-            characterId: charId,
-            ability,
-            advantage,
-            disadvantage
+          // No dedicated auto-proficiency saving-throw tool exists anymore; roll a raw
+          // d20 via math_manage/roll (save bonus must be added manually).
+          const expression = advantage ? '2d20kh1' : disadvantage ? '2d20kl1' : '1d20';
+          const result = await mcpManager.gameStateClient.callTool('math_manage', {
+            action: 'roll',
+            expression
           });
-          const text = result?.content?.[0]?.text || '{}';
-          const data = JSON.parse(text);
-          
+          const text = result?.content?.[0]?.text || '';
+          const data = extractEmbeddedJson<any>(text, 'MATH_MANAGE_JSON');
+          if (!data || data.error) {
+            return { content: `Saving throw error: could not parse roll result`, type: 'error' };
+          }
+
           let output = `## 🛡️ ${ability.toUpperCase()} Saving Throw\n\n`;
-          output += `**${data.character}** rolls: **${data.roll}**\n`;
-          if (data.proficient) output += `\n✓ Save Proficiency`;
-          
+          output += `Raw d20: **${data.total}**\n`;
+          output += `\n*Add ${ability.toUpperCase()} save bonus manually (auto-bonus tool no longer available).*\n`;
+          if (advantage) output += `⬆️ Advantage\n`;
+          if (disadvantage) output += `⬇️ Disadvantage\n`;
+
           return { content: output };
         } catch (error: any) {
           return { content: `Saving throw error: ${error.message}`, type: 'error' };
@@ -1085,9 +1106,11 @@ export const ChatInput: React.FC = () => {
         const charId = gameState.activeCharacter?.id;
         if (!charId) return { content: `No active character.`, type: 'error' };
         try {
-          const result = await mcpManager.gameStateClient.callTool('take_short_rest', { 
-            characterId: charId, 
-            hitDiceToSpend: 1 
+          // rest_manage returns RAW JSON (no embedded envelope); field names preserved.
+          const result = await mcpManager.gameStateClient.callTool('rest_manage', {
+            action: 'short',
+            characterId: charId,
+            hitDiceToSpend: 1
           });
           const text = result?.content?.[0]?.text || '{}';
           const data = JSON.parse(text);
@@ -1102,8 +1125,10 @@ export const ChatInput: React.FC = () => {
         const charId = gameState.activeCharacter?.id;
         if (!charId) return { content: `No active character.`, type: 'error' };
         try {
-          const result = await mcpManager.gameStateClient.callTool('take_long_rest', { 
-            characterId: charId 
+          // rest_manage returns RAW JSON (no embedded envelope); field names preserved.
+          const result = await mcpManager.gameStateClient.callTool('rest_manage', {
+            action: 'long',
+            characterId: charId
           });
           const text = result?.content?.[0]?.text || '{}';
           const data = JSON.parse(text);

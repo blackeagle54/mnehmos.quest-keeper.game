@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { mcpManager } from '../../services/mcpClient';
 import { useGameStateStore } from '../../stores/gameStateStore';
 import { usePartyStore } from '../../stores/partyStore';
-import { parseMcpResponse } from '../../utils/mcpUtils';
+import { parseMcpResponse, extractEmbeddedJson } from '../../utils/mcpUtils';
 import { generateBackgroundStory } from '../../utils/aiBackgroundGenerator';
 import { useSettingsStore } from '../../stores/settingsStore';
 
@@ -223,45 +223,57 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
         }));
 
         try {
-            const result = await mcpManager.gameStateClient.callTool('dice_roll', {
+            const result = await mcpManager.gameStateClient.callTool('math_manage', {
+                action: 'roll',
                 expression: '4d6dl1'  // 4d6 drop lowest
             });
-            
+
             console.log('[DiceRoll] Raw MCP result:', JSON.stringify(result).slice(0, 500));
-            
-            const data = parseMcpResponse<any>(result, null);
+
+            // math_manage wraps the payload in a <!-- MATH_MANAGE_JSON ... --> envelope.
+            // Extract the embedded JSON from the response text content.
+            const text = parseMcpResponse<string>(result, '');
+            const data = typeof text === 'string'
+                ? extractEmbeddedJson<any>(text, 'MATH_MANAGE_JSON')
+                : null;
             console.log('[DiceRoll] Parsed data:', data ? JSON.stringify(data).slice(0, 500) : 'null');
-            
+
             if (data) {
-                // Parse the roll result - handle different response formats
+                // math_manage/roll response shape (renamed from legacy dice_roll):
+                //   total -> the sum of kept dice (was legacy 'result')
+                //   rolls -> result.steps: an array of human-readable STRING steps
+                //            (e.g. "Rolled 4d6: [3, 1, 6, 1]"), NOT numeric dice.
+                // The raw per-die numeric array (metadata.rolls) is NOT exposed by the
+                // consolidated tool, so we recover the dice by parsing the first
+                // "[...]" bracket out of the step strings.
                 let total: number | undefined;
                 let rolls: number[] = [];
                 let dropped: number;
 
-                // Try to extract total
+                // Try to extract total (the kept-dice sum)
                 if (typeof data.total === 'number') {
                     total = data.total;
-                } else if (typeof data.result === 'number') {
-                    total = data.result;
                 }
 
-                // Try to extract individual dice from various possible fields
-                if (data.rolls && Array.isArray(data.rolls)) {
-                    rolls = data.rolls.map((r: any) => typeof r === 'number' ? r : r.value || r.result || 0);
-                    console.log('[DiceRoll] Found rolls array:', rolls);
-                } else if (data.dice && Array.isArray(data.dice)) {
-                    rolls = data.dice.map((d: any) => typeof d === 'number' ? d : d.value || d.result || 0);
-                    console.log('[DiceRoll] Found dice array:', rolls);
-                } else if (data.details?.rolls && Array.isArray(data.details.rolls)) {
-                    rolls = data.details.rolls;
-                    console.log('[DiceRoll] Found details.rolls:', rolls);
-                } else if (typeof data.breakdown === 'string') {
-                    // Parse from breakdown string like "4d6dl1: [4,3,5,2] (dropped 2) = 12"
-                    const match = data.breakdown.match(/\[([^\]]+)\]/);
-                    if (match) {
-                        rolls = match[1].split(',').map((n: string) => parseInt(n.trim())).filter((n: number) => !isNaN(n));
-                        console.log('[DiceRoll] Parsed from breakdown:', rolls);
+                // Recover individual dice from the step strings (data.rolls is string[]).
+                if (Array.isArray(data.rolls)) {
+                    for (const step of data.rolls) {
+                        if (typeof step !== 'string') continue;
+                        const match = step.match(/\[([^\]]+)\]/);
+                        if (match) {
+                            const parsed = match[1]
+                                .split(',')
+                                .map((n: string) => parseInt(n.trim(), 10))
+                                .filter((n: number) => !isNaN(n));
+                            // The first bracketed list is the full "Rolled NdM: [...]" set.
+                            if (parsed.length >= 4) {
+                                rolls = parsed;
+                                break;
+                            }
+                            if (rolls.length === 0) rolls = parsed;
+                        }
                     }
+                    console.log('[DiceRoll] Parsed dice from steps:', rolls);
                 }
 
                 // If we got dice but no total, calculate it
@@ -269,7 +281,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                     const sorted = [...rolls].sort((a, b) => a - b);
                     total = sorted.slice(1).reduce((a, b) => a + b, 0);
                 }
-                
+
                 // If we still don't have valid dice, use local random roll
                 if (rolls.length < 4 || total === undefined) {
                     console.log('[DiceRoll] Insufficient data from MCP, using local random roll');
@@ -278,13 +290,9 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                     dropped = localRoll.dropped;
                     total = localRoll.total;
                 } else {
-                    // Find dropped die
-                    if (data.dropped && Array.isArray(data.dropped) && data.dropped.length > 0) {
-                        dropped = data.dropped[0];
-                    } else {
-                        const sorted = [...rolls].sort((a, b) => a - b);
-                        dropped = sorted[0];
-                    }
+                    // Find dropped die: lowest of the rolled set
+                    const sorted = [...rolls].sort((a, b) => a - b);
+                    dropped = sorted[0];
                 }
                 
                 console.log('[DiceRoll] Final result:', { dice: rolls, dropped, total });
@@ -527,7 +535,8 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                 stats: finalStats, hp: maxHp, ac: baseAc
             });
 
-            const result = await mcpManager.gameStateClient.callTool('create_character', {
+            const result = await mcpManager.gameStateClient.callTool('character_manage', {
+                action: 'create',
                 name,
                 race: raceData.name,
                 class: classData.name,
@@ -540,9 +549,14 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             });
 
             console.log('[CharacterCreation] Success:', result);
-            
-            // Parse the result to get the new character's ID
-            const createdChar = parseMcpResponse<{ id?: string; characterId?: string } | null>(result, null);
+
+            // character_manage wraps the created character in a
+            // <!-- CHARACTER_MANAGE_JSON ... --> envelope. Extract it and read
+            // the new character's id (consolidated shape exposes `id`, no rename).
+            const createdText = parseMcpResponse<string>(result, '');
+            const createdChar = typeof createdText === 'string'
+                ? extractEmbeddedJson<{ id?: string; characterId?: string }>(createdText, 'CHARACTER_MANAGE_JSON')
+                : null;
             const newCharacterId = createdChar?.id || createdChar?.characterId;
             
             if (newCharacterId) {
@@ -550,7 +564,8 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                 if (activePartyId) {
                     try {
                         console.log('[CharacterCreation] Adding to party:', activePartyId);
-                        await mcpManager.gameStateClient.callTool('add_party_member', {
+                        await mcpManager.gameStateClient.callTool('party_manage', {
+                            action: 'add_member',
                             partyId: activePartyId,
                             characterId: newCharacterId,
                             role: 'member'

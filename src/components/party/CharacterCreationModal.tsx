@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { mcpManager } from '../../services/mcpClient';
-import { parseMcpResponse } from '../../utils/mcpUtils';
+import { extractEmbeddedJson } from '../../utils/mcpUtils';
 import { useGameStateStore } from '../../stores/gameStateStore';
 import { getStartingGear, getStartingItemIds } from '../../data/startingGear';
 
@@ -101,44 +101,80 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
     }, 0);
   }, [stats]);
 
+  // Local 4d6-drop-lowest roll. Used as a clean, self-consistent fallback when the
+  // MCP call throws OR when the response envelope fails to parse (null). The dice and
+  // total are computed together here so they can never disagree.
+  const rollStatLocally = useCallback((ability: keyof AbilityScores) => {
+    const dice = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
+    const sorted = [...dice].sort((a, b) => a - b);
+    const dropped = sorted[0];
+    const total = sorted.slice(1).reduce((a, b) => a + b, 0);
+
+    setRollResults(prev => ({
+      ...prev,
+      [ability]: { dice, dropped, total }
+    }));
+
+    setStats(prev => ({ ...prev, [ability]: total }));
+  }, []);
+
   // Roll 4d6 drop lowest using MCP
   const rollStat = useCallback(async (ability: keyof AbilityScores) => {
     try {
-      const result = await mcpManager.gameStateClient.callTool('dice_roll', {
+      const result = await mcpManager.gameStateClient.callTool('math_manage', {
+        action: 'roll',
         expression: '4d6dl1'  // 4d6 drop lowest
       });
-      
-      const data = parseMcpResponse<any>(result, null);
-      
-      if (data) {
-        // Parse the roll result
-        const total = data.total || data.result || 10;
-        const rolls = data.metadata?.rolls || data.rolls || data.dice || [3, 3, 3, 3];
-        const dropped = data.metadata?.dropped?.[0] || data.dropped?.[0] || Math.min(...rolls);
-        
-        setRollResults(prev => ({
-          ...prev,
-          [ability]: { dice: rolls, dropped, total }
-        }));
-        
-        setStats(prev => ({ ...prev, [ability]: total }));
+
+      // math_manage embeds its payload in a MATH_MANAGE_JSON comment envelope.
+      const text: string | undefined = result?.content?.find?.((c: any) => c.type === 'text')?.text;
+      const data = text ? extractEmbeddedJson<any>(text, 'MATH_MANAGE_JSON') : null;
+
+      // A null envelope means the response was plain text / an error payload / malformed
+      // (NOT a legitimately empty result). Treat it as a FAILURE: do not silently no-op
+      // (which makes the roll button look broken) and do not invent a stat. Surface the
+      // error and fall back to a clean, self-consistent local roll instead.
+      if (!data) {
+        console.error('Failed to roll stat: math_manage returned an unparseable envelope', { ability, text });
+        rollStatLocally(ability);
+        return;
       }
-    } catch (err) {
-      console.error('Failed to roll stat:', err);
-      // Fallback to local roll
-      const dice = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
-      const sorted = [...dice].sort((a, b) => a - b);
-      const dropped = sorted[0];
-      const total = sorted.slice(1).reduce((a, b) => a + b, 0);
-      
+
+      // Consolidated roll shape: total = the sum; `rolls` is the narration
+      // STEPS array (strings), NOT raw dice. The raw per-die values live under
+      // metadata.rolls inside the `formatted` JSON string. Parse them out so the
+      // UI can still show the [3,1,2,3] breakdown with the dropped die struck.
+      const total = data.total ?? 10;
+      let rawDice: number[] = [];
+      if (typeof data.formatted === 'string') {
+        try {
+          const parsedFormatted = JSON.parse(data.formatted);
+          if (Array.isArray(parsedFormatted?.metadata?.rolls)) {
+            rawDice = parsedFormatted.metadata.rolls.filter((r: any) => typeof r === 'number');
+          }
+        } catch {
+          // Leave rawDice empty; handled below.
+        }
+      }
+
+      // If we couldn't recover the real per-die values, DO NOT fabricate dice
+      // (e.g. [3,3,3,3]) — invented dice can contradict the authoritative `total`.
+      // Show an empty breakdown so the UI renders only the trusted total.
+      const haveDice = rawDice.length > 0;
+      const dropped = haveDice ? Math.min(...rawDice) : 0;
+
       setRollResults(prev => ({
         ...prev,
-        [ability]: { dice, dropped, total }
+        [ability]: { dice: haveDice ? rawDice : [], dropped, total }
       }));
-      
+
       setStats(prev => ({ ...prev, [ability]: total }));
+    } catch (err) {
+      console.error('Failed to roll stat:', err);
+      // Fallback to clean local roll (dice and total computed together, so consistent).
+      rollStatLocally(ability);
     }
-  }, []);
+  }, [rollStatLocally]);
 
   // Roll all stats at once
   const rollAllStats = useCallback(async () => {
@@ -295,6 +331,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
       }
 
       const toolArgs = {
+        action: 'create' as const,
         name: name.trim(),
         hp: totalHp,
         maxHp: totalHp,
@@ -307,15 +344,18 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
         ...(actualClass && { class: actualClass }),
         ...(behavior && { behavior })
       };
-      
-      console.log('[CharacterCreationModal] Calling create_character with:', toolArgs);
-      
-      const result = await mcpManager.gameStateClient.callTool('create_character', toolArgs);
-      
+
+      console.log('[CharacterCreationModal] Calling character_manage/create with:', toolArgs);
+
+      const result = await mcpManager.gameStateClient.callTool('character_manage', toolArgs);
+
       console.log('[CharacterCreationModal] Raw result:', JSON.stringify(result).slice(0, 500));
 
-      const data = parseMcpResponse<any>(result, null);
-      
+      // character_manage embeds the created character in a CHARACTER_MANAGE_JSON
+      // envelope (the embedded `data` is the character object: id, name, stats, ...).
+      const resultText: string | undefined = result?.content?.find?.((c: any) => c.type === 'text')?.text;
+      const data = resultText ? extractEmbeddedJson<any>(resultText, 'CHARACTER_MANAGE_JSON') : null;
+
       console.log('[CharacterCreationModal] Parsed data:', data ? JSON.stringify(data).slice(0, 500) : 'null');
 
       if (data && data.id) {
@@ -329,7 +369,8 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
         
         for (const itemId of itemIds) {
           try {
-            await mcpManager.gameStateClient.callTool('give_item', {
+            await mcpManager.gameStateClient.callTool('inventory_manage', {
+              action: 'give',
               characterId: data.id,
               itemId: itemId,
               quantity: 1
@@ -573,9 +614,9 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                         <div className="text-xs text-center text-terminal-green/60">
                           {formatMod(getMod(stats[ability]))}
                         </div>
-                        {rollResults[ability] && (
+                        {rollResults[ability] && rollResults[ability]!.dice.length > 0 && (
                           <div className="text-[10px] text-terminal-green/50 text-center mt-1">
-                            [{rollResults[ability]!.dice.map((d, i) => 
+                            [{rollResults[ability]!.dice.map((d, i) =>
                               d === rollResults[ability]!.dropped 
                                 ? <span key={i} className="line-through text-red-500/50">{d}</span>
                                 : <span key={i}>{d}</span>

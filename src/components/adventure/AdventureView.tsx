@@ -139,7 +139,7 @@ const QuickStats = () => {
                                             if (selectedWorld && confirm(`Delete world "${selectedWorld.name}"? This cannot be undone.`)) {
                                                 try {
                                                     const { mcpManager } = await import('../../services/mcpClient');
-                                                    await mcpManager.gameStateClient.callTool('delete_world', { id: activeWorldId });
+                                                    await mcpManager.gameStateClient.callTool('world_manage', { action: 'delete', id: activeWorldId });
                                                     await useGameStateStore.getState().syncState(true);
                                                 } catch (e) {
                                                     console.error('Failed to delete world:', e);

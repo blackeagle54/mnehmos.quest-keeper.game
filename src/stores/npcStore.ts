@@ -1,6 +1,20 @@
 import { create } from 'zustand';
 import { mcpManager } from '../services/mcpClient';
-import { parseMcpResponse } from '../utils/mcpUtils';
+import { extractEmbeddedJson } from '../utils/mcpUtils';
+
+/**
+ * Extract the embedded NPC_MANAGE_JSON payload from a npc_manage tool response.
+ *
+ * The consolidated engine returns markdown text with the structured payload
+ * embedded in a `<!-- NPC_MANAGE_JSON ... NPC_MANAGE_JSON -->` comment block, so
+ * plain JSON.parse of the response text fails — we MUST extract the embedded
+ * block. The bridge wraps results as { content: [{ type:'text', text }] }.
+ */
+function parseNpcResponse<T = any>(result: any): T | null {
+  const text: string | undefined = result?.content?.find?.((c: any) => c.type === 'text')?.text;
+  if (!text) return null;
+  return extractEmbeddedJson<T>(text, 'NPC_MANAGE_JSON');
+}
 
 // Types matching backend npc-memory.repo.ts
 export type Familiarity = 'stranger' | 'acquaintance' | 'friend' | 'close_friend' | 'rival' | 'enemy';
@@ -55,13 +69,22 @@ export const useNpcStore = create<NpcState>((set, _get) => ({
   fetchRecentMemories: async (characterId, limit = 20) => {
     set({ isLoading: true });
     try {
-      const result = await mcpManager.gameStateClient.callTool('get_recent_interactions', {
+      const result = await mcpManager.gameStateClient.callTool('npc_manage', {
+        action: 'get_recent',
         characterId,
         limit
       });
-      
-      const data = parseMcpResponse<{ memories: NpcMemory[] }>(result, { memories: [] });
-      set({ memories: data.memories || [] });
+
+      const data = parseNpcResponse<{ memories: NpcMemory[] }>(result);
+      // null => the NPC_MANAGE_JSON envelope was missing/malformed (plain-text
+      // or error payload), NOT an entity with zero memories. Treat as a failure:
+      // preserve existing memories rather than clobbering them with [].
+      if (data === null) {
+        console.warn('[npcStore] fetchRecentMemories: malformed/missing NPC_MANAGE_JSON envelope; preserving existing memories');
+        return;
+      }
+      // Envelope parsed successfully — apply the (possibly-empty) memories.
+      set({ memories: data.memories ?? [] });
     } catch (e) {
       console.warn('[npcStore] Failed to fetch recent memories:', e);
     } finally {
@@ -74,13 +97,18 @@ export const useNpcStore = create<NpcState>((set, _get) => ({
     try {
       // Fetch relationship and history in parallel
       const [relResult, histResult] = await Promise.all([
-        mcpManager.gameStateClient.callTool('get_npc_relationship', { characterId, npcId }),
-        mcpManager.gameStateClient.callTool('get_conversation_history', { characterId, npcId, limit: 50 })
+        mcpManager.gameStateClient.callTool('npc_manage', { action: 'get_relationship', characterId, npcId }),
+        mcpManager.gameStateClient.callTool('npc_manage', { action: 'get_history', characterId, npcId, limit: 50 })
       ]);
-      
-      const relData = parseMcpResponse<NpcRelationship | null>(relResult, null);
-      const histData = parseMcpResponse<{ memories: NpcMemory[] }>(histResult, { memories: [] });
-      
+
+      // npc_manage/get_relationship spreads the relationship fields at the top
+      // level of the payload (characterId, npcId, familiarity, disposition,
+      // notes, firstMetAt, lastInteractionAt, interactionCount) alongside
+      // success/actionType/isNew — so the parsed object IS the relationship.
+      const relData = parseNpcResponse<NpcRelationship | null>(relResult);
+      // npc_manage/get_history returns { ...meta, count, memories } — top-level memories.
+      const histData = parseNpcResponse<{ memories: NpcMemory[] }>(histResult);
+
       // Update relationship in list
       if (relData) {
         set(state => ({
@@ -89,9 +117,15 @@ export const useNpcStore = create<NpcState>((set, _get) => ({
             : [...state.relationships, relData]
         }));
       }
-      
-      // Update memories for selected NPC
-      set({ memories: histData.memories || [] });
+
+      // Update memories for selected NPC.
+      // null => the get_history NPC_MANAGE_JSON envelope was missing/malformed,
+      // NOT zero history. Preserve existing memories instead of clobbering [].
+      if (histData === null) {
+        console.warn('[npcStore] fetchNpcHistory: malformed/missing NPC_MANAGE_JSON envelope for get_history; preserving existing memories');
+      } else {
+        set({ memories: histData.memories ?? [] });
+      }
     } catch (e) {
       console.warn('[npcStore] Failed to fetch NPC history:', e);
     } finally {

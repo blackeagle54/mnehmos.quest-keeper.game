@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useGameStateStore } from '../../stores/gameStateStore';
 import { usePartyStore } from '../../stores/partyStore';
 import { mcpManager } from '../../services/mcpClient';
+import { extractEmbeddedJson } from '../../utils/mcpUtils';
 import { WorldEnvironmentOverlay } from './WorldEnvironmentOverlay';
 import { POIDetailPanel } from './POIDetailPanel';
 
@@ -268,7 +269,7 @@ export const WorldMapCanvas: React.FC = () => {
       }
 
       console.log('[WorldMapCanvas] Fetching tiles for world:', worldId);
-      const result = await mcpManager.gameStateClient.callTool('get_world_tiles', { worldId });
+      const result = await mcpManager.gameStateClient.callTool('world_map', { action: 'tiles', worldId });
 
       // Check if aborted
       if (abortControllerRef.current?.signal.aborted) {
@@ -278,7 +279,11 @@ export const WorldMapCanvas: React.FC = () => {
 
       const content = result.content?.[0];
       if (content?.type === 'text') {
-        const data = JSON.parse(content.text);
+        // Engine wraps the payload in a <!-- WORLD_MAP_JSON ... --> envelope.
+        const data = extractEmbeddedJson<any>(content.text, 'WORLD_MAP_JSON');
+        if (!data) {
+          throw new Error('Could not parse world_map tiles response');
+        }
         console.log('[WorldMapCanvas] Received tile data:', data.width, 'x', data.height);
         setTileData(data);
         setError(null);

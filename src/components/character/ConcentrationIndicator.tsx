@@ -26,7 +26,8 @@ export const ConcentrationIndicator: React.FC<ConcentrationIndicatorProps> = ({
     
     setBreaking(true);
     try {
-      await mcpManager.gameStateClient.callTool('break_concentration', {
+      await mcpManager.gameStateClient.callTool('concentration_manage', {
+        action: 'break',
         characterId,
         reason: 'voluntary'
       });
