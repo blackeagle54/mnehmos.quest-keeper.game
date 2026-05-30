@@ -100,6 +100,12 @@ export const WorkflowBrowserView: React.FC = () => {
   const [paramValues, setParamValues] = React.useState<Record<string, string>>({});
   const [confirmingRun, setConfirmingRun] = React.useState(false);
 
+  // Synchronous in-flight guard for the destructive autoExecute run. A ref (NOT
+  // state) is required: two confirm clicks in the same tick both read React state
+  // BEFORE a re-render, so only a synchronously-mutated ref can block the second
+  // click from re-firing the mutating run.
+  const isExecutingRef = React.useRef(false);
+
   // Discover templates on mount.
   React.useEffect(() => {
     loadTemplates();
@@ -125,11 +131,15 @@ export const WorkflowBrowserView: React.FC = () => {
 
   const buildParams = React.useCallback((): Record<string, unknown> => {
     // Forward only the required-param inputs the engine asked for, trimmed of
-    // empties so the engine can apply its own defaults/validation.
+    // empties so the engine can apply its own defaults/validation. A whitespace-only
+    // entry is DROPPED (not forwarded as '') so it can't clobber an engine default.
     const out: Record<string, unknown> = {};
     for (const key of requiredParams) {
-      const v = paramValues[key];
-      if (v !== undefined) out[key] = v;
+      const raw = paramValues[key];
+      if (raw === undefined) continue;
+      const v = raw.trim();
+      if (v.length === 0) continue;
+      out[key] = v;
     }
     return out;
   }, [requiredParams, paramValues]);
@@ -154,11 +164,17 @@ export const WorkflowBrowserView: React.FC = () => {
   }, []);
 
   const handleConfirmRun = React.useCallback(() => {
-    if (!selectedTemplateId) return;
+    // Guard the destructive run against same-tick double clicks (see isExecutingRef).
+    if (!selectedTemplateId || isExecutingRef.current) return;
+    isExecutingRef.current = true;
     setConfirmingRun(false);
     void Promise.resolve(
       runWorkflow(selectedTemplateId, buildParams(), { autoExecute: true })
-    ).catch(() => {});
+    )
+      .catch(() => {})
+      .finally(() => {
+        isExecutingRef.current = false;
+      });
   }, [selectedTemplateId, runWorkflow, buildParams]);
 
   return (
@@ -167,7 +183,7 @@ export const WorkflowBrowserView: React.FC = () => {
       <div className="w-72 shrink-0 border-r border-terminal-green/20 flex flex-col overflow-hidden">
         <div className="border-b-2 border-terminal-green p-4 flex items-center justify-between">
           <h2 className="text-lg font-bold uppercase tracking-widest text-terminal-green flex items-center gap-2">
-            <span>⚙️</span> Workflows
+            <span>🔁</span> Workflows
           </h2>
           <button
             onClick={() => loadTemplates()}
@@ -319,7 +335,8 @@ export const WorkflowBrowserView: React.FC = () => {
                   <button
                     data-testid="workflow-run-confirm"
                     onClick={handleConfirmRun}
-                    className="text-sm border border-terminal-red bg-terminal-red/20 px-4 py-2 text-terminal-red font-bold hover:bg-terminal-red/30 transition-colors rounded"
+                    disabled={isLoading}
+                    className="text-sm border border-terminal-red bg-terminal-red/20 px-4 py-2 text-terminal-red font-bold hover:bg-terminal-red/30 transition-colors rounded disabled:opacity-40"
                   >
                     Execute
                   </button>

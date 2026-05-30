@@ -13,7 +13,7 @@
  *   - loading / error / empty / no-active-character states render.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 
 // --- Store mocks (must precede component import) -----------------------------
 
@@ -219,5 +219,43 @@ describe('WorkflowBrowserView', () => {
   it('renders a no-active-character state without crashing', () => {
     gameStateState = { activeCharacterId: null };
     expect(() => render(<WorkflowBrowserView />)).not.toThrow();
+  });
+
+  it('SAFETY: rapid double Execute clicks fire the destructive run at most once', () => {
+    workflowState = { ...workflowState, selectedTemplateId: 'onboard-party', detail: sampleDetail() };
+    // Keep the run "in flight" so the in-flight guard stays armed across both clicks.
+    runWorkflow.mockReturnValue(new Promise(() => {}));
+    render(<WorkflowBrowserView />);
+
+    fireEvent.click(screen.getByTestId('workflow-run-button')); // arm the confirm
+    const execBtn = screen.getByTestId('workflow-run-confirm');
+
+    // Two clicks dispatched inside ONE act(): React batches the setConfirmingRun(false)
+    // update, so the button is still mounted for the second click. Only a SYNCHRONOUS
+    // in-flight guard (a ref) can stop the second click from re-firing the mutating run;
+    // a state-based `disabled`/isLoading check cannot, because state hasn't re-rendered.
+    act(() => {
+      execBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      execBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(runWorkflow).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops empty/whitespace-only params and trims the rest before forwarding', () => {
+    workflowState = { ...workflowState, selectedTemplateId: 'onboard-party', detail: sampleDetail() };
+    render(<WorkflowBrowserView />);
+
+    // Whitespace-only → dropped, so the engine can apply its own default/validation.
+    fireEvent.change(screen.getByTestId('workflow-param-partyName'), { target: { value: '   ' } });
+    // Surrounding whitespace → trimmed, not forwarded raw.
+    fireEvent.change(screen.getByTestId('workflow-param-leaderName'), { target: { value: '  Aria  ' } });
+
+    fireEvent.click(screen.getByTestId('workflow-run-button'));
+    fireEvent.click(screen.getByTestId('workflow-run-confirm'));
+
+    const [, params] = runWorkflow.mock.calls[0];
+    expect(params).toEqual({ leaderName: 'Aria' });
+    expect(params).not.toHaveProperty('partyName');
   });
 });
