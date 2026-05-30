@@ -53,7 +53,10 @@ vi.mock('./mcpClient', () => ({
 // --- Frontend store mocks ----------------------------------------------------
 
 const getActiveSession = vi.fn();
-const createSession = vi.fn(() => 'new-session-id');
+// Mirror the real store: when options.id is supplied, the created session carries
+// it (so an import can preserve a saved CampaignSession identity); otherwise a
+// fresh id is generated. Tests assert createSession was called WITH the saved id.
+const createSession = vi.fn((options?: any) => options?.id ?? 'new-session-id');
 const updateSession = vi.fn();
 const switchSession = vi.fn(async () => {});
 let sessions: any[] = [];
@@ -282,6 +285,38 @@ describe('buildCampaignBundle', () => {
     );
 
     await expect(buildCampaignBundle(activeSessionFixture())).rejects.toThrow();
+  });
+
+  // CodeRabbit round-3 finding 2: the bundle must be a point-in-time SNAPSHOT.
+  // sessionMeta/chat/notes were returned as LIVE store references, so a streaming
+  // chat update or a note edit AFTER buildCampaignBundle returned could leak into
+  // the file (exportActiveCampaignToFile awaits again before JSON.stringify).
+  it('returns a deep snapshot — later store mutations do NOT leak into the bundle', async () => {
+    callTool.mockResolvedValueOnce(exportResponse());
+    const liveChat = [{ id: 'm1', sender: 'user', content: 'Hello', timestamp: 1 }];
+    chatSessions = [
+      { id: 'chat_1', title: 'Linked', messages: liveChat, createdAt: 1, updatedAt: 2 },
+    ];
+    const liveNotes = [
+      { id: 'note1', title: 'Lore', content: 'stuff', category: 'lore', tags: ['a'], author: 'player', createdAt: 1, updatedAt: 1 },
+    ];
+    notes = liveNotes;
+
+    const bundle = await buildCampaignBundle(activeSessionFixture());
+
+    // Mutate the live store data AFTER the build returned.
+    liveChat.push({ id: 'm2', sender: 'ai', content: 'leaked!', timestamp: 9 });
+    liveNotes[0].title = 'EDITED AFTER SAVE';
+    liveNotes.push({ id: 'note2', title: 'new', content: 'c', category: 'lore', tags: [], author: 'player', createdAt: 2, updatedAt: 2 });
+
+    // The snapshot is frozen at build time — none of the post-build edits leak.
+    expect(bundle.chat).toHaveLength(1);
+    expect(bundle.notes).toHaveLength(1);
+    expect(bundle.notes[0].title).toBe('Lore');
+    // And the bundle is not the same reference as the live store arrays/objects.
+    expect(bundle.chat).not.toBe(liveChat);
+    expect(bundle.notes).not.toBe(liveNotes);
+    expect(bundle.sessionMeta).not.toBe(activeSessionFixture()); // (cloned object)
   });
 
   it('propagates a callTool rejection (engine JSON-RPC error)', async () => {
@@ -548,5 +583,105 @@ describe('importCampaignFromFile (no-clobber)', () => {
 
     expect(importNotes).not.toHaveBeenCalled();
     expect(switchSession).not.toHaveBeenCalled();
+  });
+
+  // CodeRabbit round-3 finding 4: malformed `chat` entries must be rejected
+  // BEFORE any store mutation. validateSaveBundle only checked Array.isArray, so
+  // [null] / message-shaped holes would pass, succeed the engine import, then
+  // corrupt chat state. Reject the file up front (no engine call, no mutation).
+  for (const [label, badChat] of [
+    ['a null entry', [null]],
+    ['a non-object entry', ['not-a-message']],
+    ['an entry missing id', [{ sender: 'user', content: 'hi', timestamp: 1 }]],
+    ['an entry with a non-string content', [{ id: 'm', sender: 'user', content: 42, timestamp: 1 }]],
+    ['an entry with a non-string sender', [{ id: 'm', sender: 7, content: 'hi', timestamp: 1 }]],
+    ['an entry with a non-number timestamp', [{ id: 'm', sender: 'user', content: 'hi', timestamp: 'x' }]],
+  ] as const) {
+    it(`REJECTS ${label} in chat without calling import or mutating stores`, async () => {
+      const bad = validSaveFileBundle();
+      (bad as any).chat = badChat;
+      readTextFile.mockResolvedValueOnce(JSON.stringify(bad));
+
+      await expect(
+        importCampaignFromFile('/mock/app/data/saves/badchat.qksave')
+      ).rejects.toThrow(/chat/i);
+
+      expect(callTool).not.toHaveBeenCalled();
+      expect(importNotes).not.toHaveBeenCalled();
+      expect(switchSession).not.toHaveBeenCalled();
+      expect(createSession).not.toHaveBeenCalled();
+      expect(updateSession).not.toHaveBeenCalled();
+    });
+  }
+
+  it('accepts a well-formed chat array (each entry id/sender/content/timestamp typed)', async () => {
+    callTool.mockResolvedValueOnce(importResponse());
+    // validSaveFileBundle()'s chat is already well-formed; just confirm it imports.
+    await expect(
+      importCampaignFromFile('/mock/app/data/saves/ok.qksave')
+    ).resolves.toBeUndefined();
+    expect(switchSession).toHaveBeenCalledTimes(1);
+  });
+});
+
+// =============================================================================
+// importCampaignFromFile — chat session identity (findings 3 & 5)
+// =============================================================================
+
+describe('importCampaignFromFile (session/chat identity)', () => {
+  // Finding 3: a blank saved chatSessionId ('' or whitespace) must be coerced to
+  // null so a FRESH chat id is generated, not an unusable empty-id chat slot.
+  for (const blank of ['', '   '] as const) {
+    it(`coerces a blank chatSessionId (${JSON.stringify(blank)}) to a fresh generated id`, async () => {
+      callTool.mockResolvedValueOnce(importResponse());
+      const file = validSaveFileBundle();
+      (file.sessionMeta as any).chatSessionId = blank;
+      readTextFile.mockResolvedValueOnce(JSON.stringify(file));
+
+      await importCampaignFromFile('/mock/app/data/saves/blankchat.qksave');
+
+      // A new chat session was created (no existing slot matched blank), and its
+      // id is a non-empty string — NOT the blank value.
+      expect(chatSessions.length).toBeGreaterThan(0);
+      const created = chatSessions[0];
+      expect(typeof created.id).toBe('string');
+      expect(created.id.trim().length).toBeGreaterThan(0);
+
+      // The CampaignSession upsert carries that fresh (non-blank) chatSessionId,
+      // never the empty string.
+      const upsertArgs =
+        createSession.mock.calls[0]?.[0] ?? updateSession.mock.calls[0]?.[1];
+      expect(upsertArgs.chatSessionId).toBeTruthy();
+      expect(upsertArgs.chatSessionId).not.toBe(blank.trim());
+    });
+  }
+
+  // Finding 5: a NEW import (no local session with meta.id) must preserve the
+  // saved CampaignSession id, so re-importing the same .qksave updates that same
+  // session instead of spawning a duplicate.
+  it('preserves the saved session id when creating a brand-new imported session', async () => {
+    callTool.mockResolvedValueOnce(importResponse());
+    sessions = []; // no existing session with meta.id
+
+    await importCampaignFromFile('/mock/app/data/saves/fresh.qksave');
+
+    expect(createSession).toHaveBeenCalledTimes(1);
+    const opts = createSession.mock.calls[0][0];
+    expect(opts.id).toBe('session_1'); // the saved meta.id, preserved on create
+    // And we switch to THAT id (not a freshly generated one).
+    expect(switchSession).toHaveBeenCalledWith('session_1');
+  });
+
+  it('re-importing the same save UPDATES the existing session (no duplicate) once it is present locally', async () => {
+    // First import creates session_1 (preserving the id); simulate it now existing.
+    sessions = [{ ...activeSessionFixture() }];
+    callTool.mockResolvedValueOnce(importResponse());
+
+    await importCampaignFromFile('/mock/app/data/saves/again.qksave');
+
+    // Existing → updateSession path, NOT createSession.
+    expect(updateSession).toHaveBeenCalledWith('session_1', expect.any(Object));
+    expect(createSession).not.toHaveBeenCalled();
+    expect(switchSession).toHaveBeenCalledWith('session_1');
   });
 });

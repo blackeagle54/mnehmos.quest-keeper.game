@@ -177,5 +177,130 @@ describe('notesStore.importNotes (dedup by id)', () => {
 
       expect(useNotesStore.getState().notes).toHaveLength(0);
     });
+
+    // --- Proportional validation (CodeRabbit round-3 findings 6 & 7) ----------
+    // A .qksave is untrusted, so REQUIRED structural fields (id/title/content/
+    // tags) are rejected when missing/wrong-typed, AND each tags element must be
+    // a string (searchNotes/getNotesByTag call .toLowerCase() on it). But we do
+    // NOT require OPTIONAL fields the store treats as optional — instead, an
+    // optional field that IS present must carry the right type (type-checked-if-
+    // present), and absent optionals are fine.
+
+    it('throws when a required field is the wrong type (id non-string)', () => {
+      useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          { id: 7, title: 't', content: 'c', tags: [] } as any,
+        ])
+      ).toThrow(/notes payload contains invalid note entries/);
+
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+    });
+
+    it('throws when id is an empty string (non-empty required as the dedup key)', () => {
+      useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          { id: '', title: 't', content: 'c', tags: [] } as any,
+        ])
+      ).toThrow(/notes payload contains invalid note entries/);
+
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+    });
+
+    for (const [field, value] of [
+      ['title', 123],
+      ['content', { not: 'a string' }],
+      ['tags', 'not-an-array'],
+    ] as const) {
+      it(`throws when required field '${field}' is the wrong type`, () => {
+        useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+        const bad: any = { id: 'n1', title: 't', content: 'c', tags: [] };
+        bad[field] = value;
+
+        expect(() =>
+          useNotesStore.getState().importNotes([bad])
+        ).toThrow(/notes payload contains invalid note entries/);
+
+        expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+      });
+    }
+
+    it('throws when a tags element is not a string (e.g. a number)', () => {
+      useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          { id: 'n1', title: 't', content: 'c', tags: ['ok', 7] } as any,
+        ])
+      ).toThrow(/notes payload contains invalid note entries/);
+
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+    });
+
+    it('throws when a tags element is null', () => {
+      useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          { id: 'n1', title: 't', content: 'c', tags: [null] } as any,
+        ])
+      ).toThrow(/notes payload contains invalid note entries/);
+
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+    });
+
+    // Optional fields are NOT required, but IF present must be the right type.
+    for (const [field, value] of [
+      ['category', 123],
+      ['author', false],
+      ['createdAt', {}],
+      ['updatedAt', []],
+      ['pinned', 'yes'],
+      ['characterId', 5],
+      ['worldId', true],
+      ['questId', {}],
+    ] as const) {
+      it(`throws when present optional field '${field}' is the wrong type`, () => {
+        useNotesStore.setState({ notes: [makeNote({ id: 'keep' })] });
+
+        const bad: any = { id: 'n1', title: 't', content: 'c', tags: [] };
+        bad[field] = value;
+
+        expect(() =>
+          useNotesStore.getState().importNotes([bad])
+        ).toThrow(/notes payload contains invalid note entries/);
+
+        expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['keep']);
+      });
+    }
+
+    it('imports a note carrying ONLY the required fields (optionals absent) without throwing', () => {
+      useNotesStore.setState({ notes: [] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          { id: 'minimal', title: 't', content: 'c', tags: ['a', 'b'] } as any,
+        ])
+      ).not.toThrow();
+
+      expect(useNotesStore.getState().notes.map((n) => n.id)).toEqual(['minimal']);
+    });
+
+    it('accepts createdAt/updatedAt as either number OR string (both are valid serialized forms)', () => {
+      useNotesStore.setState({ notes: [] });
+
+      expect(() =>
+        useNotesStore.getState().importNotes([
+          { id: 'n-num', title: 't', content: 'c', tags: [], createdAt: 1, updatedAt: 2 } as any,
+          { id: 'n-str', title: 't', content: 'c', tags: [], createdAt: '2020', updatedAt: '2021' } as any,
+        ])
+      ).not.toThrow();
+
+      expect(useNotesStore.getState().notes.map((n) => n.id).sort()).toEqual(['n-num', 'n-str']);
+    });
   });
 });

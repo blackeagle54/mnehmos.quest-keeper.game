@@ -41,8 +41,11 @@ export const SaveLoadPanel: React.FC = () => {
       setStatus({ kind: 'ok', text: `Saved campaign to ${name}` });
       // Refresh the list if it is already shown so the new file appears — but
       // keep the "Saved campaign to …" message (refresh's default clear would
-      // otherwise wipe the save confirmation the player just earned).
-      if (listed) await refresh({ clearStatus: false });
+      // otherwise wipe the save confirmation the player just earned). The save
+      // is the primary action and already succeeded (file on disk), so a failure
+      // of this secondary list-refresh must stay quiet (reportError: false) and
+      // NOT overwrite the success status with "Failed to list save files".
+      if (listed) await refresh({ clearStatus: false, reportError: false });
     } catch (err) {
       setStatus({ kind: 'error', text: messageOf(err, 'Failed to save campaign') });
     } finally {
@@ -50,8 +53,12 @@ export const SaveLoadPanel: React.FC = () => {
     }
   };
 
-  const refresh = async (opts?: { clearStatus?: boolean }) => {
+  const refresh = async (opts?: { clearStatus?: boolean; reportError?: boolean }) => {
     const clearStatus = opts?.clearStatus ?? true;
+    // A user-triggered refresh reports its own errors; a post-save auto-refresh
+    // passes reportError: false so a listing failure does not clobber the
+    // (already-true) save-success status.
+    const reportError = opts?.reportError ?? true;
     setBusy(true);
     if (clearStatus) setStatus(null);
     try {
@@ -62,7 +69,12 @@ export const SaveLoadPanel: React.FC = () => {
         setStatus({ kind: 'ok', text: 'No save files yet.' });
       }
     } catch (err) {
-      setStatus({ kind: 'error', text: messageOf(err, 'Failed to list save files') });
+      if (reportError) {
+        setStatus({ kind: 'error', text: messageOf(err, 'Failed to list save files') });
+      } else {
+        // Keep the user-facing status (the save succeeded); log for diagnostics.
+        console.error('[SaveLoadPanel] post-save list refresh failed:', err);
+      }
     } finally {
       setBusy(false);
     }

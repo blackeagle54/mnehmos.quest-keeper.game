@@ -106,6 +106,44 @@ describe('SaveLoadPanel', () => {
     expect(screen.getByTestId('save-load-status')).toHaveTextContent(/the-ironwood-saga\.qksave/);
   });
 
+  it('keeps the save-success message even when the post-save auto-refresh FAILS', async () => {
+    render(<SaveLoadPanel />);
+
+    // Show the list first so handleSave triggers an auto-refresh.
+    fireEvent.click(screen.getByTestId('refresh-saves-button'));
+    await waitFor(() => {
+      expect(screen.getAllByTestId('save-file-entry')).toHaveLength(2);
+    });
+
+    // The post-save refresh's listSaveFiles() rejects — but the save genuinely
+    // succeeded (file already on disk), so the success status must NOT be
+    // clobbered with "Failed to list save files".
+    listSaveFiles.mockRejectedValueOnce(new Error('Failed to list save files'));
+    fireEvent.click(screen.getByTestId('save-campaign-button'));
+
+    await waitFor(() => {
+      expect(exportActiveCampaignToFile).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(listSaveFiles).toHaveBeenCalledTimes(2); // initial show + failed post-save refresh
+    });
+
+    // The success message survives the failed auto-refresh.
+    expect(screen.getByTestId('save-load-status')).toHaveTextContent(/the-ironwood-saga\.qksave/);
+    expect(screen.getByTestId('save-load-status')).not.toHaveTextContent(/Failed to list/i);
+  });
+
+  it('still reports a listing error when the USER triggers a refresh (reportError on by default)', async () => {
+    listSaveFiles.mockRejectedValueOnce(new Error('EACCES: permission denied'));
+    render(<SaveLoadPanel />);
+
+    fireEvent.click(screen.getByTestId('refresh-saves-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('save-load-status')).toHaveTextContent(/permission denied/i);
+    });
+  });
+
   it('lists the available .qksave files', async () => {
     render(<SaveLoadPanel />);
     fireEvent.click(screen.getByTestId('refresh-saves-button'));

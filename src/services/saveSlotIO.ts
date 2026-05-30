@@ -162,11 +162,33 @@ function validateSaveBundle(parsed: unknown): CampaignSaveBundle {
     throw new Error('Invalid save file: missing engine bundle');
   }
 
+  // The `chat` array is written STRAIGHT into the chat store on import (verbatim
+  // history). A malformed entry (null, a primitive, or a message-shaped hole
+  // missing id/sender/content/timestamp) would otherwise pass, succeed the engine
+  // import, then corrupt chat state or break rendering. Reject the file here —
+  // BEFORE the engine call or any store mutation — so a bad chat never clobbers
+  // current state. A non-array `chat` is treated as "no chat" (defaults to []).
+  const chat = Array.isArray(b.chat) ? (b.chat as unknown[]) : [];
+  for (const entry of chat) {
+    const m = entry as Record<string, unknown> | null;
+    if (
+      m === null ||
+      typeof m !== 'object' ||
+      Array.isArray(m) ||
+      typeof m.id !== 'string' ||
+      typeof m.sender !== 'string' ||
+      typeof m.content !== 'string' ||
+      typeof m.timestamp !== 'number'
+    ) {
+      throw new Error('Invalid save file: chat payload contains invalid message entries');
+    }
+  }
+
   return {
     schemaVersion: SAVE_SCHEMA_VERSION,
     savedAt: typeof b.savedAt === 'number' ? b.savedAt : Date.now(),
     sessionMeta: b.sessionMeta as CampaignSession,
-    chat: Array.isArray(b.chat) ? (b.chat as Message[]) : [],
+    chat: chat as Message[],
     notes: Array.isArray(b.notes) ? (b.notes as Note[]) : [],
     engine: b.engine as Record<string, unknown>,
   };
@@ -234,14 +256,32 @@ export async function buildCampaignBundle(
 
   const notes = useNotesStore.getState().notes;
 
-  return {
+  // Snapshot the frontend half into plain, immutable data. sessionMeta/chat/notes
+  // are LIVE store references; exportActiveCampaignToFile awaits again (mkdir)
+  // before JSON.stringify, so without a clone a streaming chat update or a note
+  // edit in that window would leak into the file and produce a mismatched save.
+  // Deep-clone so the bundle is one consistent point-in-time snapshot. (`engine`
+  // is already a freshly-parsed payload, not a live store reference.)
+  return deepClone({
     schemaVersion: SAVE_SCHEMA_VERSION,
     savedAt: Date.now(),
     sessionMeta: activeSession,
     chat,
     notes,
     engine: engine as Record<string, unknown>,
-  };
+  });
+}
+
+/**
+ * Deep-clone a JSON-serializable value. Prefers structuredClone (Node 17+, modern
+ * browsers, the Tauri webview); falls back to JSON round-trip where it is absent.
+ * The save bundle is JSON-only data, so the round-trip is lossless here.
+ */
+function deepClone<T>(value: T): T {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 /**
@@ -368,7 +408,13 @@ export async function importCampaignFromFile(path: string): Promise<void> {
   //     chatSessionId if present so the session link stays intact; create one
   //     otherwise. We write the messages directly so the imported history is
   //     preserved verbatim.
-  let chatSessionId = meta.chatSessionId ?? null;
+  // Normalize a blank saved chatSessionId ('' or whitespace) to null. Treating
+  // '' as a real id would create a chat session keyed by an empty string — an
+  // unusable slot — instead of generating a fresh id below. Trim a real id too.
+  let chatSessionId =
+    typeof meta.chatSessionId === 'string' && meta.chatSessionId.trim().length > 0
+      ? meta.chatSessionId.trim()
+      : null;
   const existingChat = chatSessionId
     ? chatStore.sessions.find((s) => s.id === chatSessionId)
     : undefined;
@@ -423,7 +469,13 @@ export async function importCampaignFromFile(path: string): Promise<void> {
     });
     targetSessionId = meta.id;
   } else {
+    // Preserve the SAVED CampaignSession id on create (createSession honors an
+    // explicit `id`, else generates one). Without this, a fresh local id is made
+    // while future imports still look up by the original meta.id — so re-importing
+    // the same .qksave would keep spawning duplicate sessions instead of updating
+    // the prior import. Carrying meta.id makes the import idempotent.
     targetSessionId = sessionStore.createSession({
+      id: meta.id,
       name: meta.name,
       description: meta.description,
       partyId: meta.partyId,

@@ -138,21 +138,50 @@ export const useNotesStore = create<NotesState>()(
           throw new Error('Invalid save file: notes payload must be an array');
         }
 
-        // Every entry must be a non-null object carrying the REQUIRED structural
-        // Note fields: a string `id` (the dedup key) plus the fields the queries
-        // read directly — title/content (searchNotes) and a tags array
-        // (getNotesByTag/searchNotes). A note missing any of these would crash a
-        // downstream query, so reject it here rather than poison the store.
-        // (Optional fields like characterId/pinned are intentionally not checked.)
+        // Proportional validation (a .qksave is untrusted, but the store treats
+        // many Note fields as optional, so we reject CORRUPT data WITHOUT
+        // requiring fields the store never demands):
+        //
+        //  • REQUIRED (reject if missing/wrong-typed): a non-empty string `id`
+        //    (the dedup key), string `title`/`content` (searchNotes reads them),
+        //    and a `tags` array WHOSE ELEMENTS are all strings (getNotesByTag /
+        //    searchNotes call `.toLowerCase()` on each — a non-string element
+        //    would crash a downstream query).
+        //  • OPTIONAL (`category`, `author`, `createdAt`, `updatedAt`, `pinned`,
+        //    `characterId`, `worldId`, `questId`): NOT required — an absent
+        //    optional is fine — but if PRESENT it must carry the right type
+        //    (type-checked-if-present), so a malformed value can't poison a
+        //    query (getNotesByCategory) or the sort (getSortedNotes' updatedAt
+        //    subtraction). createdAt/updatedAt accept number OR string, since a
+        //    serialized save may carry either; pinned must be boolean.
+        //
+        // We deliberately do NOT expand this into a require-every-field check —
+        // that would reject valid saves the store would otherwise accept.
+        const isMissing = (v: unknown) => v === undefined || v === null;
         for (const note of notes) {
           const n = note as unknown as Record<string, unknown> | null;
           if (
             n === null ||
             typeof n !== 'object' ||
             typeof n.id !== 'string' ||
+            n.id.length === 0 ||
             typeof n.title !== 'string' ||
             typeof n.content !== 'string' ||
-            !Array.isArray(n.tags)
+            !Array.isArray(n.tags) ||
+            !(n.tags as unknown[]).every((t) => typeof t === 'string') ||
+            // Optional-if-present type checks (absent ⇒ ok).
+            (!isMissing(n.category) && typeof n.category !== 'string') ||
+            (!isMissing(n.author) && typeof n.author !== 'string') ||
+            (!isMissing(n.createdAt) &&
+              typeof n.createdAt !== 'number' &&
+              typeof n.createdAt !== 'string') ||
+            (!isMissing(n.updatedAt) &&
+              typeof n.updatedAt !== 'number' &&
+              typeof n.updatedAt !== 'string') ||
+            (!isMissing(n.pinned) && typeof n.pinned !== 'boolean') ||
+            (!isMissing(n.characterId) && typeof n.characterId !== 'string') ||
+            (!isMissing(n.worldId) && typeof n.worldId !== 'string') ||
+            (!isMissing(n.questId) && typeof n.questId !== 'string')
           ) {
             throw new Error('Invalid save file: notes payload contains invalid note entries');
           }

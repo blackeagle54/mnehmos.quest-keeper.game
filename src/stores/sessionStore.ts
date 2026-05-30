@@ -44,6 +44,12 @@ export interface CreateSessionOptions {
   worldId?: string | null;
   chatSessionId?: string | null;
   activeCharacterId?: string | null;
+  /**
+   * Preserve a specific session id instead of generating one. Used when
+   * importing a `.qksave` so a re-import updates the SAME CampaignSession rather
+   * than spawning a duplicate. Normal callers omit this (a fresh id is generated).
+   */
+  id?: string;
 }
 
 // ============================================
@@ -108,8 +114,13 @@ export const useSessionStore = create<SessionState>()(
       // ============================================
 
       createSession: (options) => {
-        const id = generateId();
-        
+        // Honor an explicit, non-blank id (e.g. preserving a saved session
+        // identity on import); otherwise generate a fresh one.
+        const id =
+          typeof options.id === 'string' && options.id.trim().length > 0
+            ? options.id
+            : generateId();
+
         // Create a new chat session for this campaign
         let chatSessionId = options.chatSessionId;
         if (!chatSessionId) {
