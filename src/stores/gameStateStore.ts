@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { dnd5eItems } from '../data/dnd5eItems';
 import { getNextLevelXp } from '../data/xpTable';
-import { parseMcpResponse, executeBatchToolCalls, debounce } from '../utils/mcpUtils';
+import { executeBatchToolCalls, debounce, extractEmbeddedJson } from '../utils/mcpUtils';
 
 export interface InventoryItem {
   id: string;
@@ -594,14 +594,14 @@ export const useGameStateStore = create<GameState>()(
           try {
             console.log('[GameStateStore] Listing characters...');
 
-            const listResult = await mcpManager.gameStateClient.callTool('list_characters', {});
-            console.log('[GameStateStore] Raw list_characters result:', listResult);
+            const listResult = await mcpManager.gameStateClient.callTool('character_manage', { action: 'list' });
+            console.log('[GameStateStore] Raw character_manage/list result:', listResult);
 
-            // Parse using utility - handles both MCP wrapper and direct JSON
-            const listData = parseMcpResponse<{ characters: any[]; count: number }>(
-              listResult, 
-              { characters: [], count: 0 }
-            );
+            // character_manage embeds its payload in a <!-- CHARACTER_MANAGE_JSON --> envelope
+            const listData = extractEmbeddedJson<{ characters: any[]; count: number }>(
+              listResult?.content?.[0]?.text ?? '',
+              'CHARACTER_MANAGE_JSON'
+            ) ?? { characters: [], count: 0 };
             
             console.log('[GameStateStore] Parsed characters data:', listData);
             console.log('[GameStateStore] Found', listData.count || listData.characters?.length || 0, 'characters');
@@ -676,18 +676,22 @@ export const useGameStateStore = create<GameState>()(
             // 2. Batch fetch character details, inventory, quests, effects, and concentration
             // ============================================
             const batchResults = await executeBatchToolCalls(mcpManager.gameStateClient, [
-              { name: 'get_character', args: { id: activeCharId } },
-              { name: 'get_inventory_detailed', args: { characterId: activeCharId } },
-              { name: 'get_quest_log', args: { characterId: activeCharId } },
+              { name: 'character_manage', args: { action: 'get', characterId: activeCharId } },
+              { name: 'inventory_manage', args: { action: 'get_detailed', characterId: activeCharId } },
+              { name: 'quest_manage', args: { action: 'get_log', characterId: activeCharId } },
               { name: 'get_custom_effects', args: { target_id: activeCharId, target_type: 'character', include_inactive: false } },
               { name: 'get_concentration_state', args: { characterId: activeCharId } }
             ]);
 
             // Process full character data (includes spellSlots, pactMagicSlots, etc.)
-            const characterResult = batchResults.find(r => r.name === 'get_character');
+            // character_manage/get embeds the flat character object in CHARACTER_MANAGE_JSON
+            const characterResult = batchResults.find(r => r.name === 'character_manage');
             let fullCharacterData: any = null;
             if (characterResult && !characterResult.error) {
-              fullCharacterData = parseMcpResponse<any>(characterResult.result, null);
+              fullCharacterData = extractEmbeddedJson<any>(
+                characterResult.result?.content?.[0]?.text ?? '',
+                'CHARACTER_MANAGE_JSON'
+              );
               if (fullCharacterData) {
                 console.log('[GameStateStore] Fetched full character data with spell slots:', 
                   fullCharacterData.spellSlots ? 'yes' : 'no',
@@ -719,10 +723,20 @@ export const useGameStateStore = create<GameState>()(
             }
 
             // Process inventory result
-            const inventoryResult = batchResults.find(r => r.name === 'get_inventory_detailed');
+            // inventory_manage/get_detailed embeds its payload in INVENTORY_MANAGE_JSON.
+            // The consolidated shape exposes the item array under `inventory` (not `items`),
+            // so remap it to `items` for parseInventoryFromJson; there is no top-level
+            // `equipment` field, so the equipped-items fallback below derives gear.
+            const inventoryResult = batchResults.find(r => r.name === 'inventory_manage');
             if (inventoryResult && !inventoryResult.error) {
-              const inventoryData = parseMcpResponse<any>(inventoryResult.result, null);
-              
+              const inventoryRaw = extractEmbeddedJson<any>(
+                inventoryResult.result?.content?.[0]?.text ?? '',
+                'INVENTORY_MANAGE_JSON'
+              );
+              const inventoryData = inventoryRaw
+                ? { ...inventoryRaw, items: inventoryRaw.inventory ?? inventoryRaw.items ?? [] }
+                : null;
+
               if (inventoryData) {
                 const items = parseInventoryFromJson(inventoryData);
                 console.log('[GameStateStore] Parsed', items.length, 'inventory items');
@@ -827,10 +841,14 @@ export const useGameStateStore = create<GameState>()(
             }
 
             // Process quest result - NOTE: Player notes now live in notesStore
-            const questResult = batchResults.find(r => r.name === 'get_quest_log');
+            // quest_manage/get_log embeds { quests: [...] } in QUEST_MANAGE_JSON
+            const questResult = batchResults.find(r => r.name === 'quest_manage');
             if (questResult && !questResult.error) {
-              const questData = parseMcpResponse<any>(questResult.result, null);
-              
+              const questData = extractEmbeddedJson<any>(
+                questResult.result?.content?.[0]?.text ?? '',
+                'QUEST_MANAGE_JSON'
+              );
+
               if (questData) {
                 const quests = parseQuestsFromResponse(questData);
                 console.log('[GameStateStore] Parsed', quests.length, 'quests');
@@ -851,8 +869,11 @@ export const useGameStateStore = create<GameState>()(
           // 3. Fetch Worlds and active world state
           // ============================================
           try {
-            const worldsResult = await mcpManager.gameStateClient.callTool('list_worlds', {});
-            const worldsData = parseMcpResponse<any>(worldsResult, { worlds: [], count: 0 });
+            const worldsResult = await mcpManager.gameStateClient.callTool('world_manage', { action: 'list' });
+            const worldsData = extractEmbeddedJson<any>(
+              worldsResult?.content?.[0]?.text ?? '',
+              'WORLD_MANAGE_JSON'
+            ) ?? { worlds: [], count: 0 };
             const worlds = worldsData.worlds || [];
             set({ worlds });
 
@@ -875,21 +896,34 @@ export const useGameStateStore = create<GameState>()(
                 console.log('[GameStateStore] Set active world:', chosenWorld.name, chosenWorld.id);
               }
 
-              // Fetch detailed world info
+              // Fetch detailed world info. Both world_manage/get and /get_state embed
+              // their payload in WORLD_MANAGE_JSON. /get nests the world fields under
+              // `.world`; /get_state returns them flat (name + environment at top level).
               let worldDetails: any = null;
               try {
-                worldDetails = await mcpManager.gameStateClient.callTool('get_world', { id: chosenWorld.id });
+                const getResult = await mcpManager.gameStateClient.callTool('world_manage', { action: 'get', id: chosenWorld.id });
+                const getData = extractEmbeddedJson<any>(getResult?.content?.[0]?.text ?? '', 'WORLD_MANAGE_JSON');
+                if (!getData || getData.error || !getData.world) {
+                  throw new Error('world_manage/get returned no world');
+                }
+                worldDetails = getData.world;
               } catch (err) {
-                console.warn('[GameStateStore] get_world failed, trying get_world_state', err);
+                console.warn('[GameStateStore] world_manage/get failed, trying world_manage/get_state', err);
                 try {
-                  worldDetails = await mcpManager.gameStateClient.callTool('get_world_state', { worldId: chosenWorld.id });
+                  const stateResult = await mcpManager.gameStateClient.callTool('world_manage', { action: 'get_state', worldId: chosenWorld.id });
+                  const stateData = extractEmbeddedJson<any>(stateResult?.content?.[0]?.text ?? '', 'WORLD_MANAGE_JSON');
+                  if (!stateData || stateData.error) {
+                    throw new Error('world_manage/get_state returned no state');
+                  }
+                  // get_state is flat: parseWorldFromResponse reads name/environment directly.
+                  worldDetails = stateData;
                 } catch (err2) {
-                  console.warn('[GameStateStore] get_world_state failed:', err2);
+                  console.warn('[GameStateStore] world_manage/get_state failed:', err2);
                 }
               }
 
               if (worldDetails) {
-                const parsedWorld = parseWorldFromResponse(parseMcpResponse<any>(worldDetails, worldDetails));
+                const parsedWorld = parseWorldFromResponse(worldDetails);
                 set({ world: parsedWorld });
               } else {
                 set({ world: parseWorldFromResponse(chosenWorld) });

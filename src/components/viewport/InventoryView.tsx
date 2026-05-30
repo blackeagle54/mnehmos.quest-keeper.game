@@ -77,7 +77,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ onClose }) => {
     setEquipError(null);
     
     try {
-      await mcpManager.gameStateClient.callTool('equip_item', {
+      await mcpManager.gameStateClient.callTool('inventory_manage', {
+        action: 'equip',
         characterId: activeCharacterId,
         itemId: selectedItem.id,
         slot
@@ -107,7 +108,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ onClose }) => {
     setEquipError(null);
     
     try {
-      await mcpManager.gameStateClient.callTool('unequip_item', {
+      await mcpManager.gameStateClient.callTool('inventory_manage', {
+        action: 'unequip',
         characterId: activeCharacterId,
         itemId: selectedItem.id
       });

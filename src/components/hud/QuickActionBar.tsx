@@ -38,8 +38,9 @@ export const QuickActionBar: React.FC = () => {
         
         if (window.confirm('End this encounter? This will finalize combat and clear the battlefield.')) {
             try {
-                await mcpManager.gameStateClient.callTool('end_encounter', { 
-                    encounterId: activeEncounterId 
+                await mcpManager.gameStateClient.callTool('combat_manage', {
+                    action: 'end',
+                    encounterId: activeEncounterId
                 });
                 clearCombat(false); // Full clear including encounter ID
                 console.log('[QuickActionBar] Encounter ended:', activeEncounterId);

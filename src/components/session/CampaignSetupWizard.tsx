@@ -407,7 +407,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                             onClick={async () => {
                               if (confirm(`Delete world "${world.name}"? This cannot be undone.`)) {
                                 try {
-                                  await mcpManager.gameStateClient.callTool('delete_world', { id: world.id });
+                                  await mcpManager.gameStateClient.callTool('world_manage', { action: 'delete', id: world.id });
                                   // Refresh worlds list
                                   await useGameStateStore.getState().syncState(true);
                                   // Clear selection if deleted world was selected
@@ -543,7 +543,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                           onClick={async () => {
                             if (confirm(`Delete party "${party.name}"? This cannot be undone.`)) {
                               try {
-                                await mcpManager.gameStateClient.callTool('delete_party', { id: party.id });
+                                await mcpManager.gameStateClient.callTool('party_manage', { action: 'delete', partyId: party.id });
                                 await usePartyStore.getState().syncParties();
                                 if (wizardState.partyId === party.id) {
                                   updateField('partyId', null);
@@ -589,9 +589,10 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                               onClick={async () => {
                                 if (confirm(`Remove "${member.character?.name}" from party?`)) {
                                   try {
-                                    await mcpManager.gameStateClient.callTool('remove_party_member', { 
-                                      partyId: selectedParty.id, 
-                                      characterId: member.characterId 
+                                    await mcpManager.gameStateClient.callTool('party_manage', {
+                                      action: 'remove_member',
+                                      partyId: selectedParty.id,
+                                      characterId: member.characterId
                                     });
                                     await usePartyStore.getState().syncPartyDetails(selectedParty.id);
                                     if (wizardState.activeCharacterId === member.characterId) {

@@ -85,7 +85,10 @@ export const SpellBookView: React.FC<SpellBookViewProps> = ({
 
     try {
       // Trigger the backend tool
-      await mcpManager.combatClient.callTool('execute_combat_action', {
+      // Migrated: execute_combat_action -> combat_action. The 'action' field
+      // ('cast_spell') is both the combat-action enum AND the router selector,
+      // so it stays as-is. Param names (encounterId/actorId/spellName) unchanged.
+      await mcpManager.combatClient.callTool('combat_action', {
         encounterId: activeEncounterId,
         action: 'cast_spell',
         actorId: characterId,

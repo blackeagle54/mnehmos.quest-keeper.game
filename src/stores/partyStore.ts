@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { parseMcpResponse, debounce } from '../utils/mcpUtils';
+import { extractEmbeddedJson, debounce } from '../utils/mcpUtils';
 import type { CharacterCondition } from './gameStateStore'; // Type-only import to avoid cycles
 
 // ============================================
@@ -218,6 +218,24 @@ interface PartyState {
 // Helper Functions
 // ============================================
 
+/**
+ * Pull the raw text payload out of an MCP tool result.
+ *
+ * Consolidated tools return an MCP content wrapper whose text is formatted
+ * ASCII followed by an embedded JSON comment block
+ * (<!-- TAG_JSON ... TAG_JSON -->). We hand that text to extractEmbeddedJson()
+ * with the tool's envelope tag to recover the structured payload.
+ */
+function getResultText(result: any): string {
+  if (result === null || result === undefined) return '';
+  if (typeof result === 'string') return result;
+  if (Array.isArray(result?.content)) {
+    const textContent = result.content.find((c: any) => c?.type === 'text');
+    if (textContent?.text) return String(textContent.text);
+  }
+  return '';
+}
+
 function parseParty(data: any): Party | null {
   if (!data || !data.id) return null;
 
@@ -419,9 +437,10 @@ export const usePartyStore = create<PartyState>()(
             args.initialMembers = initialMembers;
           }
 
+          args.action = 'create';
           console.log('[PartyStore] Creating party:', args);
-          const result = await mcpManager.gameStateClient.callTool('create_party', args);
-          const data = parseMcpResponse<any>(result, null);
+          const result = await mcpManager.gameStateClient.callTool('party_manage', args);
+          const data = extractEmbeddedJson<any>(getResultText(result), 'PARTY_MANAGE_JSON');
 
           if (data?.id || data?.party?.id) {
             const partyId = data.id || data.party.id;
@@ -454,12 +473,13 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Updating party:', partyId, updates);
-          const result = await mcpManager.gameStateClient.callTool('update_party', {
+          const result = await mcpManager.gameStateClient.callTool('party_manage', {
+            action: 'update',
             partyId,
             ...updates,
           });
 
-          const data = parseMcpResponse<any>(result, null);
+          const data = extractEmbeddedJson<any>(getResultText(result), 'PARTY_MANAGE_JSON');
 
           if (data && !data.error) {
             // Refresh party details
@@ -484,7 +504,7 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Deleting party:', partyId);
-          await mcpManager.gameStateClient.callTool('delete_party', { partyId });
+          await mcpManager.gameStateClient.callTool('party_manage', { action: 'delete', partyId });
 
           // Clear from local state
           set((state) => ({
@@ -519,7 +539,8 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Adding member:', characterId, 'to party:', partyId);
-          await mcpManager.gameStateClient.callTool('add_party_member', {
+          await mcpManager.gameStateClient.callTool('party_manage', {
+            action: 'add_member',
             partyId,
             characterId,
             role,
@@ -548,7 +569,8 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Removing member:', characterId, 'from party:', partyId);
-          await mcpManager.gameStateClient.callTool('remove_party_member', {
+          await mcpManager.gameStateClient.callTool('party_manage', {
+            action: 'remove_member',
             partyId,
             characterId,
           });
@@ -576,7 +598,8 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Updating member:', characterId, updates);
-          await mcpManager.gameStateClient.callTool('update_party_member', {
+          await mcpManager.gameStateClient.callTool('party_manage', {
+            action: 'update_member',
             partyId,
             characterId,
             ...updates,
@@ -602,7 +625,8 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Setting leader:', characterId, 'for party:', partyId);
-          await mcpManager.gameStateClient.callTool('set_party_leader', {
+          await mcpManager.gameStateClient.callTool('party_manage', {
+            action: 'set_leader',
             partyId,
             characterId,
           });
@@ -627,7 +651,8 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Setting active character (POV):', characterId, 'for party:', partyId);
-          await mcpManager.gameStateClient.callTool('set_active_character', {
+          await mcpManager.gameStateClient.callTool('party_manage', {
+            action: 'set_active',
             partyId,
             characterId,
           });
@@ -659,7 +684,7 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Deleting character:', characterId);
-          await mcpManager.gameStateClient.callTool('delete_character', { id: characterId });
+          await mcpManager.gameStateClient.callTool('character_manage', { action: 'delete', characterId });
 
           // If this was the active character, clear it
           const { useGameStateStore } = await import('./gameStateStore');
@@ -692,8 +717,9 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Updating character:', characterId, updates);
-          await mcpManager.gameStateClient.callTool('update_character', {
-            id: characterId,
+          await mcpManager.gameStateClient.callTool('character_manage', {
+            action: 'update',
+            characterId,
             ...updates,
           });
 
@@ -740,8 +766,9 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Syncing parties list...');
-          const result = await mcpManager.gameStateClient.callTool('list_parties', {});
-          const data = parseMcpResponse<{ parties: any[]; count: number }>(result, { parties: [], count: 0 });
+          const result = await mcpManager.gameStateClient.callTool('party_manage', { action: 'list' });
+          const data = extractEmbeddedJson<{ parties: any[]; count: number }>(getResultText(result), 'PARTY_MANAGE_JSON')
+            ?? { parties: [], count: 0 };
 
           const parties: Party[] = [];
           for (const partyData of data.parties || []) {
@@ -783,8 +810,8 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Fetching party details:', partyId);
-          const result = await mcpManager.gameStateClient.callTool('get_party', { partyId });
-          const data = parseMcpResponse<any>(result, null);
+          const result = await mcpManager.gameStateClient.callTool('party_manage', { action: 'get', partyId });
+          const data = extractEmbeddedJson<any>(getResultText(result), 'PARTY_MANAGE_JSON');
 
           if (data) {
             const partyWithMembers = parsePartyWithMembers(data.party || data);
@@ -820,8 +847,9 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Fetching unassigned characters...');
-          const result = await mcpManager.gameStateClient.callTool('get_unassigned_characters', {});
-          const data = parseMcpResponse<{ characters: any[]; count: number }>(result, { characters: [], count: 0 });
+          const result = await mcpManager.gameStateClient.callTool('party_manage', { action: 'get_unassigned' });
+          const data = extractEmbeddedJson<{ characters: any[]; count: number }>(getResultText(result), 'PARTY_MANAGE_JSON')
+            ?? { characters: [], count: 0 };
 
           const characters: CharacterSummary[] = [];
           for (const charData of data.characters || []) {
@@ -845,22 +873,38 @@ export const usePartyStore = create<PartyState>()(
         try {
           const { mcpManager } = await import('../services/mcpClient');
 
-          const result = await mcpManager.gameStateClient.callTool('get_party_context', {
+          const result = await mcpManager.gameStateClient.callTool('party_manage', {
+            action: 'get_context',
             partyId,
             verbosity,
           });
 
-          const data = parseMcpResponse<any>(result, null);
+          const data = extractEmbeddedJson<any>(getResultText(result), 'PARTY_MANAGE_JSON');
 
           if (data) {
+            // Consolidated party_manage/get_context returns a nested shape:
+            //   { party: { id, name, status, location, formation },
+            //     members: [{ name, role, hp, status }],
+            //     leader: { id, name, hp, maxHp, level },
+            //     activeCharacter: { id, name, hp, maxHp, level } }
+            // Remap to the flat PartyContext: leader/activeCharacter become names,
+            // partyName comes from party.name, memberCount from members length.
+            const activeCharacterName = data.activeCharacter?.name;
             return {
-              partyId: data.partyId || partyId,
-              partyName: data.partyName || data.name || 'Unknown Party',
-              memberCount: data.memberCount || data.members?.length || 0,
-              leader: data.leader,
-              activeCharacter: data.activeCharacter,
+              partyId: data.party?.id || partyId,
+              partyName: data.party?.name || 'Unknown Party',
+              memberCount: data.members?.length || 0,
+              leader: data.leader?.name,
+              activeCharacter: activeCharacterName,
               summary: data.summary || '',
-              members: data.members || [],
+              members: (data.members || []).map((m: any) => ({
+                name: m.name,
+                role: m.role,
+                class: m.class || m.characterClass || '',
+                level: m.level || 0,
+                hp: m.hp,
+                isActive: activeCharacterName ? m.name === activeCharacterName : false,
+              })),
             };
           }
 
@@ -882,7 +926,8 @@ export const usePartyStore = create<PartyState>()(
           const { mcpManager } = await import('../services/mcpClient');
 
           console.log('[PartyStore] Moving party:', partyId, 'to', targetX, targetY, locationName);
-          const result = await mcpManager.gameStateClient.callTool('move_party', {
+          const result = await mcpManager.gameStateClient.callTool('party_manage', {
+            action: 'move',
             partyId,
             targetX,
             targetY,
@@ -890,7 +935,7 @@ export const usePartyStore = create<PartyState>()(
             poiId,
           });
 
-          const data = parseMcpResponse<any>(result, null);
+          const data = extractEmbeddedJson<any>(getResultText(result), 'PARTY_MANAGE_JSON');
 
           if (data?.success) {
             console.log('[PartyStore] Party moved successfully:', data);
@@ -930,10 +975,13 @@ export const usePartyStore = create<PartyState>()(
         try {
           const { mcpManager } = await import('../services/mcpClient');
 
-          const result = await mcpManager.gameStateClient.callTool('get_party_position', { partyId });
-          const data = parseMcpResponse<any>(result, null);
+          const result = await mcpManager.gameStateClient.callTool('party_manage', { action: 'get_position', partyId });
+          const data = extractEmbeddedJson<any>(getResultText(result), 'PARTY_MANAGE_JSON');
 
-          if (data?.success && data?.position) {
+          // Consolidated party_manage/get_position returns { partyId, partyName,
+          // position: { x, y, locationName, poiId? } } with NO top-level `success`
+          // flag, so guard on position presence (and that x is actually set).
+          if (data?.position && data.position.x !== null && data.position.x !== undefined) {
             return {
               x: data.position.x,
               y: data.position.y,

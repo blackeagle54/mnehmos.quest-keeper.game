@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { mcpManager } from '../../services/mcpClient';
-import { parseMcpResponse } from '../../utils/mcpUtils';
+import { extractEmbeddedJson } from '../../utils/mcpUtils';
 import { useGameStateStore } from '../../stores/gameStateStore';
 import { getStartingGear, getStartingItemIds } from '../../data/startingGear';
 
@@ -104,23 +104,40 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
   // Roll 4d6 drop lowest using MCP
   const rollStat = useCallback(async (ability: keyof AbilityScores) => {
     try {
-      const result = await mcpManager.gameStateClient.callTool('dice_roll', {
+      const result = await mcpManager.gameStateClient.callTool('math_manage', {
+        action: 'roll',
         expression: '4d6dl1'  // 4d6 drop lowest
       });
-      
-      const data = parseMcpResponse<any>(result, null);
-      
+
+      // math_manage embeds its payload in a MATH_MANAGE_JSON comment envelope.
+      const text: string | undefined = result?.content?.find?.((c: any) => c.type === 'text')?.text;
+      const data = text ? extractEmbeddedJson<any>(text, 'MATH_MANAGE_JSON') : null;
+
       if (data) {
-        // Parse the roll result
-        const total = data.total || data.result || 10;
-        const rolls = data.metadata?.rolls || data.rolls || data.dice || [3, 3, 3, 3];
-        const dropped = data.metadata?.dropped?.[0] || data.dropped?.[0] || Math.min(...rolls);
-        
+        // Consolidated roll shape: total = the sum; `rolls` is the narration
+        // STEPS array (strings), NOT raw dice. The raw per-die values live under
+        // metadata.rolls inside the `formatted` JSON string. Parse them out so the
+        // UI can still show the [3,1,2,3] breakdown with the dropped die struck.
+        const total = data.total ?? 10;
+        let rawDice: number[] = [];
+        if (typeof data.formatted === 'string') {
+          try {
+            const parsedFormatted = JSON.parse(data.formatted);
+            if (Array.isArray(parsedFormatted?.metadata?.rolls)) {
+              rawDice = parsedFormatted.metadata.rolls.filter((r: any) => typeof r === 'number');
+            }
+          } catch {
+            // Leave rawDice empty; fall back below.
+          }
+        }
+        const safeRolls = rawDice.length > 0 ? rawDice : [3, 3, 3, 3];
+        const dropped = Math.min(...safeRolls);
+
         setRollResults(prev => ({
           ...prev,
-          [ability]: { dice: rolls, dropped, total }
+          [ability]: { dice: safeRolls, dropped, total }
         }));
-        
+
         setStats(prev => ({ ...prev, [ability]: total }));
       }
     } catch (err) {
@@ -295,6 +312,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
       }
 
       const toolArgs = {
+        action: 'create' as const,
         name: name.trim(),
         hp: totalHp,
         maxHp: totalHp,
@@ -307,15 +325,18 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
         ...(actualClass && { class: actualClass }),
         ...(behavior && { behavior })
       };
-      
-      console.log('[CharacterCreationModal] Calling create_character with:', toolArgs);
-      
-      const result = await mcpManager.gameStateClient.callTool('create_character', toolArgs);
-      
+
+      console.log('[CharacterCreationModal] Calling character_manage/create with:', toolArgs);
+
+      const result = await mcpManager.gameStateClient.callTool('character_manage', toolArgs);
+
       console.log('[CharacterCreationModal] Raw result:', JSON.stringify(result).slice(0, 500));
 
-      const data = parseMcpResponse<any>(result, null);
-      
+      // character_manage embeds the created character in a CHARACTER_MANAGE_JSON
+      // envelope (the embedded `data` is the character object: id, name, stats, ...).
+      const resultText: string | undefined = result?.content?.find?.((c: any) => c.type === 'text')?.text;
+      const data = resultText ? extractEmbeddedJson<any>(resultText, 'CHARACTER_MANAGE_JSON') : null;
+
       console.log('[CharacterCreationModal] Parsed data:', data ? JSON.stringify(data).slice(0, 500) : 'null');
 
       if (data && data.id) {
@@ -329,7 +350,8 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
         
         for (const itemId of itemIds) {
           try {
-            await mcpManager.gameStateClient.callTool('give_item', {
+            await mcpManager.gameStateClient.callTool('inventory_manage', {
+              action: 'give',
               characterId: data.id,
               itemId: itemId,
               quantity: 1

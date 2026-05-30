@@ -147,15 +147,15 @@ export function getPlaytestModePrompt(): string {
 /**
  * Fetch Layer 3: World State Snapshot
  */
-async function fetchWorldContext(worldId: string, verbosity: Verbosity): Promise<string> {
+async function fetchWorldContext(worldId: string, _verbosity: Verbosity): Promise<string> {
   try {
-    const result = await mcpManager.gameStateClient.callTool('get_narrative_context', {
+    const result = await mcpManager.gameStateClient.callTool('session_manage', {
+      action: 'get_context',
       worldId,
-      verbosity,
-      includeNarrativeMemory: false, // Separate layer
-      includeSecrets: false // Separate layer
+      includeNarrative: false, // Separate layer (Layer 5)
+      includeCombat: false // Scene layer handles active combat (Layer 6)
     });
-    
+
     const text = parseMcpResponse<string>(result, '');
     if (typeof text === 'string') return text;
     
@@ -182,7 +182,8 @@ async function fetchPartyContext(partyId: string | undefined, characterId: strin
     
     if (partyId) {
       promises.push(
-        mcpManager.gameStateClient.callTool('get_party_context', {
+        mcpManager.gameStateClient.callTool('party_manage', {
+          action: 'get_context',
           partyId,
           verbosity
         })
@@ -191,7 +192,8 @@ async function fetchPartyContext(partyId: string | undefined, characterId: strin
     
     if (characterId) {
       promises.push(
-        mcpManager.gameStateClient.callTool('get_character', {
+        mcpManager.gameStateClient.callTool('character_manage', {
+          action: 'get',
           characterId,
           includeInventory: verbosity !== 'minimal',
           includeSpells: verbosity !== 'minimal'
@@ -231,7 +233,8 @@ async function fetchPartyContext(partyId: string | undefined, characterId: strin
  */
 async function fetchNarrativeMemory(worldId: string): Promise<string> {
   try {
-    const result = await mcpManager.gameStateClient.callTool('get_narrative_context_notes', {
+    const result = await mcpManager.gameStateClient.callTool('narrative_manage', {
+      action: 'get_context',
       worldId,
       includeTypes: ['plot_thread', 'canonical_moment', 'npc_voice', 'foreshadowing'],
       maxPerType: 5,
@@ -261,9 +264,9 @@ async function fetchSceneContext(
     // Combat scene takes priority
     if (encounterId) {
       const [encounterResult, mapResult] = await Promise.all([
-        mcpManager.gameStateClient.callTool('get_encounter_state', { encounterId }),
-        verbosity !== 'minimal' 
-          ? mcpManager.gameStateClient.callTool('render_map', { encounterId, width: 15, height: 15 })
+        mcpManager.gameStateClient.callTool('combat_manage', { action: 'get', encounterId }),
+        verbosity !== 'minimal'
+          ? mcpManager.gameStateClient.callTool('combat_map', { action: 'render', encounterId, width: 15, height: 15 })
           : Promise.resolve(null)
       ]);
       
@@ -279,7 +282,8 @@ async function fetchSceneContext(
     
     // Dialogue scene
     if (activeNpcId && characterId) {
-      const result = await mcpManager.gameStateClient.callTool('get_npc_context', {
+      const result = await mcpManager.gameStateClient.callTool('npc_manage', {
+        action: 'get_context',
         characterId,
         npcId: activeNpcId,
         memoryLimit: 5
@@ -292,7 +296,8 @@ async function fetchSceneContext(
     
     // Exploration scene (fallback)
     if (characterId) {
-      const result = await mcpManager.gameStateClient.callTool('look_at_surroundings', {
+      const result = await mcpManager.gameStateClient.callTool('spatial_manage', {
+        action: 'look',
         observerId: characterId
       });
       
@@ -313,7 +318,8 @@ async function fetchSceneContext(
  */
 async function fetchSecrets(worldId: string): Promise<string> {
   try {
-    const result = await mcpManager.gameStateClient.callTool('get_secrets_for_context', {
+    const result = await mcpManager.gameStateClient.callTool('secret_manage', {
+      action: 'get_context',
       worldId
     });
     
@@ -398,34 +404,47 @@ export async function buildSystemPrompt(options: ContextOptions): Promise<string
 export async function buildSessionResumePrompt(worldId: string, _characterId: string): Promise<string> {
   try {
     // Get the most recent session log
-    const result = await mcpManager.gameStateClient.callTool('search_narrative_notes', {
+    const result = await mcpManager.gameStateClient.callTool('narrative_manage', {
+      action: 'search',
       worldId,
       type: 'session_log',
       limit: 1,
       orderBy: 'created_at'
     });
-    
+
+    // narrative_manage returns raw router JSON (no <!-- ..._JSON --> envelope),
+    // so parse content[0].text directly. Search shape: { count, notes: [{ content, ... }] }.
     let sessionSummary = '';
     if (result?.content?.[0]?.text) {
-      const parsed = JSON.parse(result.content[0].text);
-      if (parsed.notes && parsed.notes.length > 0) {
-        sessionSummary = parsed.notes[0].content;
+      try {
+        const parsed = JSON.parse(result.content[0].text);
+        if (parsed?.notes && parsed.notes.length > 0) {
+          sessionSummary = parsed.notes[0].content;
+        }
+      } catch {
+        // Non-JSON / malformed response — leave summary empty.
       }
     }
     
     // Get recent plot threads
-    const plotResult = await mcpManager.gameStateClient.callTool('search_narrative_notes', {
+    const plotResult = await mcpManager.gameStateClient.callTool('narrative_manage', {
+      action: 'search',
       worldId,
       type: 'plot_thread',
       status: 'active',
       limit: 3
     });
-    
+
+    // narrative_manage returns raw router JSON (no embedded-comment envelope).
     let plotThreads = '';
     if (plotResult?.content?.[0]?.text) {
-      const parsed = JSON.parse(plotResult.content[0].text);
-      if (parsed.notes && parsed.notes.length > 0) {
-        plotThreads = parsed.notes.map((n: any) => `- ${n.content}`).join('\n');
+      try {
+        const parsed = JSON.parse(plotResult.content[0].text);
+        if (parsed?.notes && parsed.notes.length > 0) {
+          plotThreads = parsed.notes.map((n: any) => `- ${n.content}`).join('\n');
+        }
+      } catch {
+        // Non-JSON / malformed response — leave plot threads empty.
       }
     }
     

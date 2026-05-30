@@ -3,6 +3,7 @@ import { useGameStateStore } from '../../stores/gameStateStore';
 import { useCombatStore } from '../../stores/combatStore';
 import { mcpManager } from '../../services/mcpClient';
 import { useChatStore } from '../../stores/chatStore';
+import { extractEmbeddedJson } from '../../utils/mcpUtils';
 
 interface Corpse {
   id: string;
@@ -49,12 +50,13 @@ export const LootPanel: React.FC<LootPanelProps> = ({ isOpen, onClose }) => {
     if (!activeEncounterId) return;
     setIsLoading(true);
     try {
-      const result = await mcpManager.gameStateClient.callTool('list_corpses_in_encounter', {
+      const result = await mcpManager.gameStateClient.callTool('corpse_manage', {
+        action: 'list_in_encounter',
         encounterId: activeEncounterId
       });
-      const text = result?.content?.[0]?.text || '{}';
-      const data = JSON.parse(text);
-      setCorpses(data.corpses || []);
+      const text = result?.content?.[0]?.text || '';
+      const data = extractEmbeddedJson<any>(text, 'CORPSE_MANAGE_JSON');
+      setCorpses(data?.corpses || []);
     } catch (error) {
       console.error('Failed to fetch corpses:', error);
     } finally {
@@ -65,12 +67,13 @@ export const LootPanel: React.FC<LootPanelProps> = ({ isOpen, onClose }) => {
   const fetchLoot = async (corpseId: string) => {
     setIsLoading(true);
     try {
-      const result = await mcpManager.gameStateClient.callTool('get_corpse_inventory', {
+      const result = await mcpManager.gameStateClient.callTool('corpse_manage', {
+        action: 'get_inventory',
         corpseId
       });
-      const text = result?.content?.[0]?.text || '{}';
-      const data = JSON.parse(text);
-      setLootItems(data.available || []);
+      const text = result?.content?.[0]?.text || '';
+      const data = extractEmbeddedJson<any>(text, 'CORPSE_MANAGE_JSON');
+      setLootItems(data?.available || []);
       setSelectedCorpse(corpseId);
     } catch (error) {
       console.error('Failed to fetch loot:', error);
@@ -84,17 +87,18 @@ export const LootPanel: React.FC<LootPanelProps> = ({ isOpen, onClose }) => {
     setIsLoading(true);
     
     try {
-      const result = await mcpManager.gameStateClient.callTool('loot_corpse', {
+      const result = await mcpManager.gameStateClient.callTool('corpse_manage', {
+        action: 'loot',
         characterId: activeCharacter.id,
         corpseId: selectedCorpse,
         lootAll: true
       });
-      
-      const text = result?.content?.[0]?.text || '{}';
-      const data = JSON.parse(text);
-      
+
+      const text = result?.content?.[0]?.text || '';
+      const data = extractEmbeddedJson<any>(text, 'CORPSE_MANAGE_JSON');
+
       // Log to chat
-      const items = data.itemsLooted || [];
+      const items = data?.itemsLooted || [];
       addMessage({
         id: Date.now().toString(),
         sender: 'system',

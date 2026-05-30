@@ -43,11 +43,13 @@ export const RestPanel: React.FC<RestPanelProps> = ({ isOpen, onClose }) => {
     setIsResting(true);
     
     try {
-      const result = await mcpManager.gameStateClient.callTool('take_short_rest', {
+      const result = await mcpManager.gameStateClient.callTool('rest_manage', {
+        action: 'short',
         characterId: activeCharacter.id,
         hitDiceToSpend
       });
-      
+
+      // rest_manage returns plain JSON in content[0].text (no embedded envelope).
       const text = result?.content?.[0]?.text || '{}';
       const data = JSON.parse(text);
       setRestResult(data);
@@ -81,10 +83,12 @@ export const RestPanel: React.FC<RestPanelProps> = ({ isOpen, onClose }) => {
     setIsResting(true);
     
     try {
-      const result = await mcpManager.gameStateClient.callTool('take_long_rest', {
+      const result = await mcpManager.gameStateClient.callTool('rest_manage', {
+        action: 'long',
         characterId: activeCharacter.id
       });
-      
+
+      // rest_manage returns plain JSON in content[0].text (no embedded envelope).
       const text = result?.content?.[0]?.text || '{}';
       const data = JSON.parse(text);
       setRestResult(data);
