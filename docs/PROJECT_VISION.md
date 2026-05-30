@@ -1,7 +1,7 @@
 # Quest Keeper AI - Project Vision
 
-**Version:** 2.0
-**Last Updated:** December 3, 2024
+**Version:** 2.1
+**Last Updated:** May 30, 2026 — Phases 1–6 complete (session export incl. PDF, context condensing, batch-generation workflows)
 
 ---
 
