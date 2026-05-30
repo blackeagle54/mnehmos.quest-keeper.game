@@ -307,6 +307,17 @@ describe('slugifyCharacterName', () => {
     expect(slugifyCharacterName('   ')).toBe('character-sheet');
     expect(slugifyCharacterName('***')).toBe('character-sheet');
   });
+
+  it('suffixes Windows reserved device names so the file write succeeds', () => {
+    // Bare "CON"/"NUL"/"COM1" are reserved Windows device names; writing
+    // "con.pdf" fails on Windows. Append "-file" to keep them writable.
+    expect(slugifyCharacterName('CON')).toBe('con-file');
+    expect(slugifyCharacterName('NUL')).toBe('nul-file');
+    expect(slugifyCharacterName('COM1')).toBe('com1-file');
+    // Unaffected: a normal name and the default fallback stay as-is.
+    expect(slugifyCharacterName('Aria')).toBe('aria');
+    expect(slugifyCharacterName('   ')).toBe('character-sheet');
+  });
 });
 
 describe('exportCharacterSheetPdf', () => {

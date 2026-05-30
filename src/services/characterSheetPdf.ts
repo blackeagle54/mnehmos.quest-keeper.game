@@ -54,7 +54,11 @@ export function slugifyCharacterName(name: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, '-') // non-alphanumerics -> single dash
     .replace(/^-+|-+$/g, ''); // trim leading/trailing dashes
-  return slug || 'character-sheet';
+  const base = slug || 'character-sheet';
+  // A name like "CON"/"NUL"/"COM1" slugs to a reserved Windows device name,
+  // which breaks the file write on Windows. Suffix it to keep the stem writable.
+  const windowsReserved = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+  return windowsReserved.test(base) ? `${base}-file` : base;
 }
 
 /**
