@@ -111,6 +111,18 @@ export const WorkflowBrowserView: React.FC = () => {
     loadTemplates();
   }, [loadTemplates]);
 
+  // Rehydrate the detail for a PERSISTED selection on mount: selectedTemplateId is
+  // persisted (partialize) but detail is NOT, so a reloaded session lands with a
+  // selection and no detail — and the render guards then show nothing. Mount-only:
+  // handleSelect covers later user clicks, and depending on selectedTemplateId here
+  // would double-load on every click (handleSelect already calls loadDetail).
+  React.useEffect(() => {
+    if (selectedTemplateId && !detail) {
+      loadDetail(selectedTemplateId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Reset the per-template form + any armed confirm whenever the selection
   // changes, so stale params/confirm state can never leak across templates.
   React.useEffect(() => {

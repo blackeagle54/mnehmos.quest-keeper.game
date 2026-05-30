@@ -341,11 +341,12 @@ export const useWorkflowStore = create<WorkflowState>()(
             const lastRun: WorkflowRunResult = { ...data, templateId };
             set({ lastRun });
 
-            // Only an EXECUTED (autoExecute:true) run mass-mutates game state; a
-            // dry-run preview (autoExecute:false) changes nothing, so it must not
-            // trigger a re-sync. Fire the re-sync from the finally tail so the
-            // store's pending counter has already settled.
-            if (autoExecute) {
+            // Only an EXECUTED run mass-mutates game state. Gate the re-sync on the
+            // engine's ACTUAL report (autoExecuted === true), not merely on what we
+            // requested — if autoExecute was asked for but the engine didn't execute
+            // (dry-run fallback / declined), nothing mutated, so don't re-sync. Fire
+            // from the finally tail so the store's pending counter has already settled.
+            if (autoExecute && lastRun.autoExecuted === true) {
               // Defer until after endRequest() runs so isLoading reflects the
               // run itself, not the trailing background sync.
               queueMicrotask(resyncAfterRun);

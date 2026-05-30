@@ -84,6 +84,21 @@ describe('WorkflowBrowserView', () => {
     expect(loadTemplates).toHaveBeenCalled();
   });
 
+  it('rehydrates detail for a PERSISTED selection on mount (selectedTemplateId set, detail null)', () => {
+    // selectedTemplateId is persisted but detail is NOT — a reloaded session has a
+    // selection with no detail, and the render guards then show nothing. Mount must
+    // re-fetch the detail for the persisted selection.
+    workflowState = { ...workflowState, selectedTemplateId: 'onboard-party', detail: null };
+    render(<WorkflowBrowserView />);
+    expect(loadDetail).toHaveBeenCalledWith('onboard-party');
+  });
+
+  it('does NOT re-fetch detail on mount when none is selected', () => {
+    workflowState = { ...workflowState, selectedTemplateId: null, detail: null };
+    render(<WorkflowBrowserView />);
+    expect(loadDetail).not.toHaveBeenCalled();
+  });
+
   it('renders each template by name in the list', () => {
     render(<WorkflowBrowserView />);
     expect(screen.getByText(/Onboard a Party/i)).toBeInTheDocument();

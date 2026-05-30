@@ -356,6 +356,26 @@ describe('workflowStore', () => {
       expect(syncState).not.toHaveBeenCalled();
     });
 
+    it('does NOT re-sync when autoExecute was requested but the engine did NOT auto-execute', async () => {
+      // Trust the engine's REPORT of what it did, not what we asked for: a run that
+      // comes back autoExecuted:false mutated nothing server-side → no re-sync.
+      callTool.mockResolvedValueOnce(
+        wrapResponse({
+          success: true,
+          actionType: 'execute_workflow',
+          autoExecuted: false,
+          steps: [{ tool: 'create_party', resolved: true }],
+        })
+      );
+
+      await useWorkflowStore.getState().runWorkflow('onboard-party', {}, { autoExecute: true });
+      await flush();
+
+      const s = useWorkflowStore.getState();
+      expect(s.lastRun?.autoExecuted).toBe(false);
+      expect(syncState).not.toHaveBeenCalled();
+    });
+
     it('does NOT re-sync game state on an error-envelope run', async () => {
       callTool.mockResolvedValueOnce(
         wrapResponse({ error: true, message: 'Template not found' })
