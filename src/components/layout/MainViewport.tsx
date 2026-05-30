@@ -9,6 +9,7 @@ import { SkillsView } from '../viewport/SkillsView';
 import { QuestChainView } from '../viewport/QuestChainView';
 import { AchievementsView } from '../viewport/AchievementsView';
 import { ReputationView } from '../viewport/ReputationView';
+import { WorkflowBrowserView } from '../viewport/WorkflowBrowserView';
 import { SettingsView } from '../viewport/SettingsView';
 
 import { useTheme } from '../../context/ThemeContext';
@@ -41,6 +42,8 @@ export const MainViewport: React.FC<MainViewportProps> = ({ className }) => {
         return <AchievementsView />;
       case 'reputation':
         return <ReputationView />;
+      case 'workflows':
+        return <WorkflowBrowserView />;
       case 'settings':
         return <SettingsView />;
       default:
