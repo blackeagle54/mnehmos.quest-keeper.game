@@ -44,6 +44,23 @@ export interface CreateSessionOptions {
   worldId?: string | null;
   chatSessionId?: string | null;
   activeCharacterId?: string | null;
+  /**
+   * Preserve a specific session id instead of generating one. Used when
+   * importing a `.qksave` so a re-import updates the SAME CampaignSession rather
+   * than spawning a duplicate. Normal callers omit this (a fresh id is generated).
+   */
+  id?: string;
+  /**
+   * Restore persisted CampaignSession metadata when re-creating a session from a
+   * saved bundle. These are normally derived (defaulted) by createSession, but a
+   * `.qksave` import must carry the saved values through so the restored session
+   * keeps its UI snapshot (party/level/location) and its original timestamps.
+   * Normal callers omit them (defaults apply).
+   */
+  snapshot?: SessionSnapshot;
+  createdAt?: number;
+  lastPlayedAt?: number;
+  playtime?: number;
 }
 
 // ============================================
@@ -108,8 +125,13 @@ export const useSessionStore = create<SessionState>()(
       // ============================================
 
       createSession: (options) => {
-        const id = generateId();
-        
+        // Honor an explicit, non-blank id (e.g. preserving a saved session
+        // identity on import); otherwise generate a fresh one.
+        const id =
+          typeof options.id === 'string' && options.id.trim().length > 0
+            ? options.id
+            : generateId();
+
         // Create a new chat session for this campaign
         let chatSessionId = options.chatSessionId;
         if (!chatSessionId) {
@@ -118,6 +140,9 @@ export const useSessionStore = create<SessionState>()(
           useChatStore.getState().updateSessionTitle(chatSessionId, options.name);
         }
         
+        // Restore persisted metadata when provided (a `.qksave` import carries the
+        // saved snapshot/timestamps so the re-created session keeps them); fall
+        // back to the normal fresh-session defaults otherwise.
         const newSession: CampaignSession = {
           id,
           name: options.name,
@@ -126,10 +151,10 @@ export const useSessionStore = create<SessionState>()(
           worldId: options.worldId || null,
           chatSessionId,
           activeCharacterId: options.activeCharacterId || null,
-          createdAt: Date.now(),
-          lastPlayedAt: Date.now(),
-          playtime: 0,
-          snapshot: createDefaultSnapshot(),
+          createdAt: options.createdAt ?? Date.now(),
+          lastPlayedAt: options.lastPlayedAt ?? Date.now(),
+          playtime: options.playtime ?? 0,
+          snapshot: options.snapshot ?? createDefaultSnapshot(),
         };
         
         set((state) => ({

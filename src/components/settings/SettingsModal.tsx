@@ -3,6 +3,7 @@ import { useSettingsStore, LLMProvider } from '../../stores/settingsStore';
 import { open } from '@tauri-apps/plugin-shell';
 import { appLogDir } from '@tauri-apps/api/path';
 import { mkdir } from '@tauri-apps/plugin-fs';
+import { SaveLoadPanel } from './SaveLoadPanel';
 import { ExportPanel } from './ExportPanel';
 
 interface SettingsModalProps {
@@ -174,6 +175,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             className="h-24 w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
                             placeholder="Define the AI's behavior..."
                         />
+                    </div>
+
+                    {/* Campaign Save/Load to File */}
+                    <div className="pt-2 border-t border-terminal-green-dim">
+                        <SaveLoadPanel />
                     </div>
 
                     {/* Debug / Logs */}

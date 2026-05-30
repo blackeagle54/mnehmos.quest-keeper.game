@@ -126,10 +126,86 @@ export const useNotesStore = create<NotesState>()(
       },
 
       importNotes: (notes) => {
-        set((state) => ({
-          notes: [...notes, ...state.notes]
-        }));
-        console.log('[NotesStore] Imported', notes.length, 'notes');
+        // Validate shape FIRST (a .qksave is untrusted input). Throw BEFORE any
+        // dedup/mutation so a malformed payload leaves the store untouched
+        // (no-clobber); the caller (importCampaignFromFile) runs this before the
+        // session upsert, so a bad notes array aborts the whole restore cleanly.
+
+        // The payload itself must be an array — anything else (object, null,
+        // string, number) would make the for…of below throw a raw TypeError, or
+        // (for a string) iterate characters. Guard it explicitly.
+        if (!Array.isArray(notes)) {
+          throw new Error('Invalid save file: notes payload must be an array');
+        }
+
+        // Proportional validation (a .qksave is untrusted, but the store treats
+        // many Note fields as optional, so we reject CORRUPT data WITHOUT
+        // requiring fields the store never demands):
+        //
+        //  • REQUIRED (reject if missing/wrong-typed): a non-empty string `id`
+        //    (the dedup key), string `title`/`content` (searchNotes reads them),
+        //    and a `tags` array WHOSE ELEMENTS are all strings (getNotesByTag /
+        //    searchNotes call `.toLowerCase()` on each — a non-string element
+        //    would crash a downstream query).
+        //  • OPTIONAL (`category`, `author`, `createdAt`, `updatedAt`, `pinned`,
+        //    `characterId`, `worldId`, `questId`): NOT required — an absent
+        //    optional is fine — but if PRESENT it must carry the right type
+        //    (type-checked-if-present), so a malformed value can't poison a
+        //    query (getNotesByCategory) or the sort.
+        //
+        //    createdAt/updatedAt, IF PRESENT, must be a FINITE NUMBER — NOT a
+        //    string. The store writes numeric Date.now() timestamps and
+        //    getSortedNotes sorts by `b.updatedAt - a.updatedAt`; a string (or
+        //    NaN/Infinity) makes that subtraction NaN and silently breaks the
+        //    sort, so a string timestamp is rejected here (CodeRabbit round-4).
+        //    pinned must be boolean.
+        //
+        //    category/author are OPTIONAL fields are type-checked-if-present, not
+        //    required — makeNote defaults them; requiring them would reject valid
+        //    saves. A note WITHOUT category/author is valid; a PRESENT one must be
+        //    a string.
+        //
+        // We deliberately do NOT expand this into a require-every-field check —
+        // that would reject valid saves the store would otherwise accept.
+        const isMissing = (v: unknown) => v === undefined || v === null;
+        for (const note of notes) {
+          const n = note as unknown as Record<string, unknown> | null;
+          if (
+            n === null ||
+            typeof n !== 'object' ||
+            typeof n.id !== 'string' ||
+            n.id.length === 0 ||
+            typeof n.title !== 'string' ||
+            typeof n.content !== 'string' ||
+            !Array.isArray(n.tags) ||
+            !(n.tags as unknown[]).every((t) => typeof t === 'string') ||
+            // Optional-if-present type checks (absent ⇒ ok).
+            (!isMissing(n.category) && typeof n.category !== 'string') ||
+            (!isMissing(n.author) && typeof n.author !== 'string') ||
+            // Number-only (finite) timestamps — reject strings / NaN / Infinity.
+            (!isMissing(n.createdAt) && !Number.isFinite(n.createdAt)) ||
+            (!isMissing(n.updatedAt) && !Number.isFinite(n.updatedAt)) ||
+            (!isMissing(n.pinned) && typeof n.pinned !== 'boolean') ||
+            (!isMissing(n.characterId) && typeof n.characterId !== 'string') ||
+            (!isMissing(n.worldId) && typeof n.worldId !== 'string') ||
+            (!isMissing(n.questId) && typeof n.questId !== 'string')
+          ) {
+            throw new Error('Invalid save file: notes payload contains invalid note entries');
+          }
+        }
+        // Dedup by id. Loading a campaign save re-imports its notes, and the
+        // player may re-load the same .qksave more than once — a naive
+        // `[...notes, ...state.notes]` prepend would clone every note on each
+        // load. Build an id->note map (existing first, incoming last) so an
+        // incoming note REPLACES the existing row with the same id, duplicate
+        // ids WITHIN the payload collapse to one, and re-importing is idempotent.
+        set((state) => {
+          const byId = new Map<string, Note>();
+          for (const note of state.notes) byId.set(note.id, note);
+          for (const note of notes) byId.set(note.id, note);
+          return { notes: Array.from(byId.values()) };
+        });
+        console.log('[NotesStore] Imported', notes.length, 'notes (deduped by id)');
       },
 
       clearAllNotes: () => {

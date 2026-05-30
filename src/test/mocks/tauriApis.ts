@@ -107,9 +107,15 @@ export function createMockCommandSidecar() {
  * Mock filesystem API
  */
 export const mockFs = {
-  readTextFile: vi.fn(async (_path: string) => ''),
+  readTextFile: vi.fn(async (_path: string): Promise<string> => ''),
   writeTextFile: vi.fn(async (_path: string, _contents: string) => {}),
-  readDir: vi.fn(async (_path: string) => []),
+  // plugin-fs v2 readDir returns DirEntry[] ({ name, isFile, isDirectory });
+  // typed loosely so consumers can supply their own entries.
+  readDir: vi.fn(
+    async (_path: string): Promise<Array<{ name: string; isFile: boolean; isDirectory: boolean }>> => []
+  ),
+  // plugin-fs v2 mkdir (replaces the legacy createDir); accepts a recursive opt.
+  mkdir: vi.fn(async (_path: string, _opts?: { recursive?: boolean }) => {}),
   createDir: vi.fn(async (_path: string) => {}),
   exists: vi.fn(async (_path: string) => true),
   removeFile: vi.fn(async (_path: string) => {}),
