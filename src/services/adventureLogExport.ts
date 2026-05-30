@@ -241,14 +241,16 @@ export async function exportAdventureLogToFile(
   });
 
   // I/O: write under <appDataDir>/exports/<slug>.md (mirrors mcpClient pattern).
-  const { appDataDir } = await import('@tauri-apps/api/path');
+  // Compose paths with Tauri's `join` rather than hardcoding "/" so the
+  // separator is correct on every platform.
+  const { appDataDir, join } = await import('@tauri-apps/api/path');
   const { mkdir, writeTextFile } = await import('@tauri-apps/plugin-fs');
 
   const dir = await appDataDir();
-  const exportsDir = `${dir}/exports`;
+  const exportsDir = await join(dir, 'exports');
   await mkdir(exportsDir, { recursive: true });
 
-  const filePath = `${exportsDir}/${slugify(sessionName)}.md`;
+  const filePath = await join(exportsDir, `${slugify(sessionName)}.md`);
   await writeTextFile(filePath, markdown);
 
   return filePath;

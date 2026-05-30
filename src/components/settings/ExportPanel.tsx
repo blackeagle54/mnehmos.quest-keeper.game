@@ -21,18 +21,32 @@ export const ExportPanel: React.FC = () => {
   const [path, setPath] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Track mount status so the async handler never setStates after unmount
+  // (the export can resolve/reject while the settings panel is already closed).
+  const isMountedRef = React.useRef(true);
+  React.useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    []
+  );
+
   const handleExport = async () => {
     setStatus('loading');
     setPath(null);
     setError(null);
     try {
       const written = await exportAdventureLogToFile();
-      setPath(written);
-      setStatus('success');
+      if (isMountedRef.current) {
+        setPath(written);
+        setStatus('success');
+      }
     } catch (e) {
       // Surface the failure in the UI; never let it escape as an unhandled throw.
-      setError(e instanceof Error ? e.message : 'Export failed');
-      setStatus('error');
+      if (isMountedRef.current) {
+        setError(e instanceof Error ? e.message : 'Export failed');
+        setStatus('error');
+      }
     }
   };
 

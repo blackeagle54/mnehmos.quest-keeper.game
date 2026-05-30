@@ -26,8 +26,11 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
     writeTextFile(...(args as [string, string])),
 }));
 
+const join = vi.fn((...parts: string[]) => parts.join('/'));
+
 vi.mock('@tauri-apps/api/path', () => ({
   appDataDir: (...args: unknown[]) => appDataDir(...(args as [])),
+  join: (...args: string[]) => join(...args),
 }));
 
 // --- Store mocks --------------------------------------------------------------
@@ -248,6 +251,7 @@ describe('exportAdventureLogToFile', () => {
     mkdir.mockClear();
     writeTextFile.mockClear();
     appDataDir.mockClear();
+    join.mockClear();
 
     chatState = {
       sessions: [
@@ -304,6 +308,12 @@ describe('exportAdventureLogToFile', () => {
     const [writtenPath, writtenContents] = writeTextFile.mock.calls[0];
     expect(writtenPath).toMatch(/\/exports\/.*\.md$/);
     expect(writtenPath).toBe(path);
+
+    // Paths are composed via Tauri's `join`, not hardcoded "/" concatenation,
+    // so the written path must equal the value `join` produced.
+    expect(join).toHaveBeenCalledWith('/mock/app/data', 'exports');
+    expect(join).toHaveBeenCalledWith('/mock/app/data/exports', 'the-lost-mine.md');
+    expect(writtenPath).toBe('/mock/app/data/exports/the-lost-mine.md');
 
     // Contents must equal what the pure renderer produces for the same state.
     const expected = buildAdventureLogMarkdown({
