@@ -30,11 +30,15 @@ const TIMEOUTS = {
 
 // Operations that may take longer (world gen/restore, batch ops)
 const COMPLEX_OPERATIONS = new Set([
-    // World operations - can trigger full regeneration from seed
+    // Consolidated world tools — generation runs procedural worldgen from a seed
+    // (slow for large maps) and tile/map fetches return large payloads.
+    'world_manage',         // action:generate can take >30s on big worlds
+    'world_map',            // action:tiles/overview/region — large response
+    // Legacy single-purpose names (kept for any remaining direct callers / compat)
     'generate_world',
     'create_world',
     'get_world_tiles',      // Large response + may trigger world restore
-    'get_world_state',      // May trigger world restore  
+    'get_world_state',      // May trigger world restore
     'get_world_map_overview', // May trigger world restore
     'get_region_map',       // May trigger world restore
     // Strategy operations

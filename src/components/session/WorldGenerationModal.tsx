@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { mcpManager } from '../../services/mcpClient';
+import { extractEmbeddedJson } from '../../utils/mcpUtils';
 import { llmService } from '../../services/llm/LLMService';
 import { useSettingsStore } from '../../stores/settingsStore';
 
@@ -165,7 +166,8 @@ Description: [one atmospheric sentence]`;
       
       console.log('[WorldGen] Calling generate_world with seed:', actualSeed);
       
-      const result = await mcpManager.gameStateClient.callTool('generate_world', {
+      const result = await mcpManager.gameStateClient.callTool('world_manage', {
+        action: 'generate',
         seed: actualSeed,
         name: worldName,
         width: 100,
@@ -176,8 +178,14 @@ Description: [one atmospheric sentence]`;
 
       const content = result.content?.[0];
       if (content?.type === 'text') {
-        const data = JSON.parse(content.text);
-        worldId = data.id || data.worldId;
+        // The engine wraps results in a RichFormatter envelope (human text + an
+        // embedded <!-- WORLD_MANAGE_JSON ... --> block), so parse the embedded
+        // payload — a raw JSON.parse would choke on the leading prose.
+        const data = extractEmbeddedJson<any>(content.text, 'WORLD_MANAGE_JSON');
+        if (!data) {
+          throw new Error('Could not parse world_manage generate response');
+        }
+        worldId = data.worldId || data.id;
         console.log('[WorldGen] World ID:', worldId);
         
         if (!worldId) {
@@ -187,21 +195,22 @@ Description: [one atmospheric sentence]`;
         // worldId is used directly in onComplete callback
         addLog(`World created with ID: ${worldId.slice(0, 8)}...`, 'success');
         
-        // generate_world only returns structure COUNT, not array
-        // Fetch actual structures from get_world_tiles for LLM lore
-        const structureCount = data.stats?.structures || 0;
+        // world_manage generate returns structureCount (a number), not an array.
+        // Fetch actual structures from world_map (action: tiles) for LLM lore.
+        const structureCount = data.structureCount ?? data.stats?.structures ?? 0;
         addLog(`World has ${structureCount} points of interest`, 'success');
         
         if (structureCount > 0) {
           addLog('Fetching structure details...', 'info');
           try {
-            const tilesResult = await mcpManager.gameStateClient.callTool('get_world_tiles', {
+            const tilesResult = await mcpManager.gameStateClient.callTool('world_map', {
+              action: 'tiles',
               worldId: worldId,
             });
             const tilesContent = tilesResult.content?.[0];
             if (tilesContent?.type === 'text') {
-              const tilesData = JSON.parse(tilesContent.text);
-              structures = tilesData.structures || [];
+              const tilesData = extractEmbeddedJson<any>(tilesContent.text, 'WORLD_MAP_JSON');
+              structures = tilesData?.structures || [];
               console.log('[WorldGen] Fetched structures:', structures.length);
               addLog(`Retrieved ${structures.length} structure details`, 'success');
             }
