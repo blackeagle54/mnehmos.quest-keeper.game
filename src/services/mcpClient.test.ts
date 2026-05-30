@@ -209,8 +209,10 @@ describe('McpClient — spawn strategies', () => {
     expect(client.isConnected()).toBe(false);
 
     // Sanity: a request now writes to the strategy-2 command, proving the live
-    // process is the direct one rather than the failed sidecar.
-    void client.listTools();
+    // process is the direct one rather than the failed sidecar. This request is
+    // never answered, so swallow its eventual real-timer timeout rejection —
+    // otherwise it surfaces ~10s later as an unhandled rejection in a later test.
+    client.listTools().catch(() => { /* unanswered here; ignore late timeout */ });
     await Promise.resolve();
     expect(directCmd.write).toHaveBeenCalledTimes(1);
   });
