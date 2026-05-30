@@ -181,7 +181,8 @@ describe('buildCharacterSheetDocDefinition', () => {
     const text = collectText(docDef.content).join('\n');
     expect(text).toContain('Paladin');
     expect(text).toContain('Human');
-    expect(text).toContain('7');
+    // Assert the exact label so an incidental '7' elsewhere can't false-pass.
+    expect(text).toContain('Level 7');
   });
 
   it('includes every ability score (STR/DEX/CON/INT/WIS/CHA) and its value', () => {
@@ -343,6 +344,43 @@ describe('exportCharacterSheetPdf', () => {
 
     expect(writeFile).toHaveBeenCalledTimes(1);
     expect(path.toLowerCase()).toContain('borin-ironfist');
+  });
+
+  it('attaches the store inventory only when exporting the ACTIVE character', async () => {
+    // Active character (id char-1) carries a Spellbook in the store.
+    gameStateState = {
+      activeCharacter: character({ id: 'char-1', name: 'Aria Stormborn' }),
+      activeCharacterId: 'char-1',
+      inventory: [item({ id: 'a', name: 'Spellbook' })],
+    };
+
+    await exportCharacterSheetPdf(
+      character({ id: 'char-1', name: 'Aria Stormborn' }),
+      FIXED_TS
+    );
+
+    const docDef = createPdf.mock.calls[0][0] as { content: unknown[] };
+    const text = collectText(docDef.content).join('\n');
+    expect(text).toContain('Spellbook'); // active char's inventory is present
+    expect(text).not.toContain('No items carried.');
+  });
+
+  it('does NOT attach the active inventory to a DIFFERENT character', async () => {
+    // Store's active character is char-1 with a Spellbook; we export char-2.
+    gameStateState = {
+      activeCharacter: character({ id: 'char-1', name: 'Aria Stormborn' }),
+      activeCharacterId: 'char-1',
+      inventory: [item({ id: 'a', name: 'Spellbook' })],
+    };
+
+    const other = character({ id: 'char-2', name: 'Borin Ironfist' });
+    await exportCharacterSheetPdf(other, FIXED_TS);
+
+    const docDef = createPdf.mock.calls[0][0] as { content: unknown[] };
+    const text = collectText(docDef.content).join('\n');
+    // The active character's Spellbook must NOT leak onto a different character.
+    expect(text).not.toContain('Spellbook');
+    expect(text).toContain('No items carried.');
   });
 
   it('rejects (without writing) when there is no active character', async () => {

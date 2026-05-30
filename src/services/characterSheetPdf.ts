@@ -234,10 +234,16 @@ export async function exportCharacterSheetPdf(
     throw new Error('No active character to export.');
   }
 
-  // When exporting an injected character, prefer its store inventory only if it
-  // is the active one; otherwise default to whatever the store carries (the UI
-  // only ever exports the active character, so this stays correct in practice).
-  const inventory = gameState.inventory ?? [];
+  // `gameState.inventory` is the ACTIVE character's carried items, NOT a
+  // per-character store. Only attach it when the character being exported IS the
+  // active character; otherwise a non-active export would wrongly carry the
+  // active character's inventory. Per-character inventory for non-active chars
+  // isn't synced into the store, so it correctly falls back to empty.
+  const isActiveCharacter =
+    !character ||
+    (gameState.activeCharacter != null &&
+      gameState.activeCharacter.id === character.id);
+  const inventory = isActiveCharacter ? (gameState.inventory ?? []) : [];
 
   const docDefinition = buildCharacterSheetDocDefinition(target, {
     generatedAt: now,
