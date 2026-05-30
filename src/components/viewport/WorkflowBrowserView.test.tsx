@@ -13,7 +13,7 @@
  *   - loading / error / empty / no-active-character states render.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 
 // --- Store mocks (must precede component import) -----------------------------
 
@@ -323,6 +323,40 @@ describe('WorkflowBrowserView', () => {
     });
 
     expect(runWorkflow).toHaveBeenCalledTimes(1);
+  });
+
+  it('SAFETY: rapid double Preview clicks fire the dry-run at most once', () => {
+    workflowState = { ...workflowState, selectedTemplateId: 'onboard-party', detail: sampleDetail() };
+    runWorkflow.mockReturnValue(new Promise(() => {})); // keep the dry-run in flight
+    render(<WorkflowBrowserView />);
+    const previewBtn = screen.getByTestId('workflow-preview-button');
+    // Two clicks in ONE act(): only a synchronous in-flight guard stops the second.
+    act(() => {
+      previewBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      previewBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(runWorkflow).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT show a success check for an UNRESOLVED preview step', () => {
+    workflowState = {
+      ...workflowState,
+      selectedTemplateId: 'onboard-party',
+      detail: sampleDetail(),
+      lastRun: {
+        actionType: 'execute_workflow',
+        autoExecuted: false,
+        templateId: 'onboard-party',
+        steps: [
+          { tool: 'create_party', resolved: true }, // resolved → ✓
+          { tool: 'spawn_location', resolved: false }, // NOT resolved → no ✓
+        ],
+      },
+    };
+    render(<WorkflowBrowserView />);
+    const panel = screen.getByTestId('workflow-run-result');
+    // Only the resolved step earns a green check — an unresolved preview step must not.
+    expect(within(panel).queryAllByText('✓')).toHaveLength(1);
   });
 
   it('drops empty/whitespace-only params and trims the rest before forwarding', () => {

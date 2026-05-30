@@ -66,8 +66,12 @@ const RunResultPanel: React.FC<RunResultPanelProps> = ({ run }) => {
               <span className="truncate">{step.tool ?? 'step'}</span>
               {step.success === false || step.error ? (
                 <span className="text-terminal-red shrink-0">✗ {step.error ?? 'failed'}</span>
-              ) : (
+              ) : step.success === true || step.resolved === true ? (
+                // ✓ only on an AFFIRMATIVE outcome: executed-success or preview-resolved.
                 <span className="text-terminal-green shrink-0">✓</span>
+              ) : (
+                // Unresolved/pending preview step — don't imply success it didn't earn.
+                <span className="text-terminal-green/40 shrink-0">…</span>
               )}
             </li>
           ))}
@@ -105,6 +109,10 @@ export const WorkflowBrowserView: React.FC = () => {
   // BEFORE a re-render, so only a synchronously-mutated ref can block the second
   // click from re-firing the mutating run.
   const isExecutingRef = React.useRef(false);
+  // Same synchronous guard for the (non-destructive but still re-entrant) dry-run
+  // preview, so rapid clicks can't enqueue overlapping previews whose responses
+  // race to overwrite lastRun.
+  const isPreviewingRef = React.useRef(false);
 
   // Discover templates on mount.
   React.useEffect(() => {
@@ -163,10 +171,15 @@ export const WorkflowBrowserView: React.FC = () => {
 
   // Dry-run preview: mutates NOTHING server-side, so it needs no confirm gate.
   const handlePreview = React.useCallback(() => {
-    if (!selectedTemplateId) return;
+    if (!selectedTemplateId || isPreviewingRef.current) return;
+    isPreviewingRef.current = true;
     void Promise.resolve(
       runWorkflow(selectedTemplateId, buildParams(), { autoExecute: false })
-    ).catch(() => {});
+    )
+      .catch(() => {})
+      .finally(() => {
+        isPreviewingRef.current = false;
+      });
   }, [selectedTemplateId, runWorkflow, buildParams]);
 
   // SAFETY: a workflow run mass-mutates game state, so the destructive
