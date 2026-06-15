@@ -54,7 +54,7 @@ export const MainViewport: React.FC<MainViewportProps> = ({ className }) => {
   return (
     <div className={`flex flex-col bg-terminal-black h-full border-l border-terminal-green-dim ${className || ''}`}>
       {/* Content Area */}
-      <div className={`flex-1 text-terminal-green font-mono flex relative overflow-hidden ${activeTab === 'combat' ? '' : 'bg-terminal-black'}`}>
+      <div className={`flex-1 text-terminal-green flex relative overflow-hidden ${activeTab === 'combat' ? '' : 'bg-terminal-black'}`}>
         
         {/* Persistently mounted BattlemapCanvas to prevent WebGL context loss */}
         <BattlemapCanvas active={activeTab === 'combat'} />

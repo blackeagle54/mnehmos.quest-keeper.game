@@ -4,6 +4,7 @@
  */
 
 import { useSettingsStore } from '../stores/settingsStore';
+import { invoke } from '@tauri-apps/api/core';
 
 interface CharacterContext {
     name: string;
@@ -19,11 +20,11 @@ interface CharacterContext {
  */
 export async function generateBackgroundStory(context: CharacterContext): Promise<string> {
     const { apiKeys, selectedProvider, providerModels } = useSettingsStore.getState();
-    const apiKey = apiKeys[selectedProvider];
-    const model = providerModels[selectedProvider];
+    const apiKey = apiKeys[selectedProvider] || '';
+    const model = providerModels[selectedProvider] || 'gpt-5.4';
 
-    if (!apiKey) {
-        throw new Error(`No API key configured for ${selectedProvider}. Please set it in Settings.`);
+    if (selectedProvider !== 'codex' && !apiKey) {
+        throw new Error(`API-ключ для ${selectedProvider} не настроен. Укажи его в настройках.`);
     }
 
     const prompt = buildPrompt(context);
@@ -38,6 +39,8 @@ export async function generateBackgroundStory(context: CharacterContext): Promis
             return callAnthropic(apiKey, model, prompt);
         case 'gemini':
             return callGemini(apiKey, model, prompt);
+        case 'codex':
+            return callCodex(model, prompt);
         default:
             throw new Error(`Unsupported provider: ${selectedProvider}`);
     }
@@ -45,7 +48,8 @@ export async function generateBackgroundStory(context: CharacterContext): Promis
 
 function buildPrompt(context: CharacterContext): string {
     const parts = [
-        `Generate a compelling 2-3 paragraph backstory for a fantasy RPG character with these details:`,
+        `Generate a compelling 2-3 paragraph backstory for a fantasy RPG character with these details.`,
+        `Think and organize durable character facts in English, but write the final backstory for the player in Russian.`,
         ``,
         `Name: ${context.name || 'Unknown'}`,
         `Race: ${context.race}`,
@@ -64,14 +68,15 @@ function buildPrompt(context: CharacterContext): string {
     parts.push(
         ``,
         `Guidelines:`,
+        `- Write the final text in Russian`,
         `- Write in third person`,
         `- Include a formative event that explains why they became a ${context.characterClass}`,
         `- Reference their ${context.race} heritage naturally`,
         `- Add a personal motivation or goal`,
         `- Keep it under 500 characters`,
-        `- Be evocative but not cliché`,
+        `- Be evocative but not cliche`,
         ``,
-        `Respond ONLY with the backstory text, no headers or explanations.`
+        `Respond ONLY with the Russian backstory text, no headers or explanations.`
     );
 
     return parts.join('\n');
@@ -87,7 +92,7 @@ async function callOpenAI(apiKey: string, model: string, prompt: string): Promis
         body: JSON.stringify({
             model,
             messages: [
-                { role: 'system', content: 'You are a creative writing assistant specializing in fantasy RPG character backstories.' },
+                { role: 'system', content: 'You are a creative writing assistant specializing in fantasy RPG character backstories. Think in English for structure, but reply to the player only in Russian.' },
                 { role: 'user', content: prompt }
             ],
             max_tokens: 300,
@@ -116,7 +121,7 @@ async function callOpenRouter(apiKey: string, model: string, prompt: string): Pr
         body: JSON.stringify({
             model,
             messages: [
-                { role: 'system', content: 'You are a creative writing assistant specializing in fantasy RPG character backstories.' },
+                { role: 'system', content: 'You are a creative writing assistant specializing in fantasy RPG character backstories. Think in English for structure, but reply to the player only in Russian.' },
                 { role: 'user', content: prompt }
             ],
             max_tokens: 300,
@@ -147,7 +152,7 @@ async function callAnthropic(apiKey: string, model: string, prompt: string): Pro
             messages: [
                 { role: 'user', content: prompt }
             ],
-            system: 'You are a creative writing assistant specializing in fantasy RPG character backstories.',
+            system: 'You are a creative writing assistant specializing in fantasy RPG character backstories. Think in English for structure, but reply to the player only in Russian.',
         }),
     });
 
@@ -172,7 +177,7 @@ async function callGemini(apiKey: string, model: string, prompt: string): Promis
                 contents: [
                     {
                         parts: [
-                            { text: `System: You are a creative writing assistant specializing in fantasy RPG character backstories.\n\n${prompt}` }
+                            { text: `System: You are a creative writing assistant specializing in fantasy RPG character backstories. Think in English for structure, but reply to the player only in Russian.\n\n${prompt}` }
                         ]
                     }
                 ],
@@ -191,4 +196,22 @@ async function callGemini(apiKey: string, model: string, prompt: string): Promis
 
     const data = await response.json();
     return data.candidates[0]?.content?.parts[0]?.text?.trim() || '';
+}
+
+async function callCodex(model: string, prompt: string): Promise<string> {
+    const response = await invoke<{ content: string }>('codex_send_message', {
+        request: {
+            model,
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are a creative writing assistant specializing in fantasy RPG character backstories. Think in English for structure, but reply to the player only in Russian.',
+                },
+                { role: 'user', content: prompt },
+            ],
+            tools: [],
+        },
+    });
+
+    return response.content?.trim() || '';
 }

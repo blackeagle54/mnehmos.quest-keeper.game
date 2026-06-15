@@ -44,14 +44,14 @@ const QuickStats = () => {
                 <div>
                     <div className="flex items-center justify-between mb-3">
                         <h3 className="text-xs font-bold uppercase tracking-widest text-terminal-green/60">
-                            Party
+                            Группа
                         </h3>
                         <button
                             onClick={() => setIsCreatingCharacter(true)}
                             className="px-2 py-1 bg-terminal-green/10 border border-terminal-green text-terminal-green text-xs rounded hover:bg-terminal-green/20 transition-colors"
-                            title="Create Character"
+                            title="Создать персонажа"
                         >
-                            + Char
+                            + Перс.
                         </button>
                     </div>
                     <PartySelector
@@ -63,23 +63,23 @@ const QuickStats = () => {
                 {activeChar && (
                     <div>
                         <h3 className="text-xs font-bold uppercase tracking-widest text-terminal-green/60 mb-3 border-b border-terminal-green-dim pb-1">
-                            Now Playing
+                            Сейчас играет
                         </h3>
                         <div className="bg-terminal-green/10 p-3 rounded border border-terminal-green/40 shadow-[0_0_10px_rgba(0,255,0,0.1)]">
                             <div className="font-bold text-lg text-terminal-green-bright truncate" title={activeChar.character.name}>
                                 {activeChar.character.name}
                             </div>
                             <div className="text-xs text-terminal-green/70 mb-2">
-                                Level {activeChar.character.level} {activeChar.character.race ? `${activeChar.character.race} ` : ''}{activeChar.character.class}
+                                Ур. {activeChar.character.level} {activeChar.character.race ? `${activeChar.character.race} ` : ''}{activeChar.character.class}
                                 {activeChar.role === 'leader' && (
-                                    <span className="ml-2 text-yellow-400">★ Leader</span>
+                                    <span className="ml-2 text-yellow-400">★ Лидер</span>
                                 )}
                             </div>
 
                             {/* HP Bar */}
                             <div className="mb-2">
                                 <div className="flex justify-between text-xs mb-1">
-                                    <span>HP</span>
+                                    <span>ОЗ</span>
                                     <span>{activeChar.character.hp}/{activeChar.character.maxHp}</span>
                                 </div>
                                 <div className="h-2 bg-terminal-green/20 rounded-full overflow-hidden">
@@ -110,12 +110,12 @@ const QuickStats = () => {
                 {/* Location Info */}
                 <div>
                     <h3 className="text-xs font-bold uppercase tracking-widest text-terminal-green/60 mb-3 border-b border-terminal-green-dim pb-1">
-                        Location
+                        Локация
                     </h3>
                     <div className="text-sm space-y-2">
                         <div>
                             <label className="block text-xs font-bold uppercase tracking-widest text-terminal-green/60 mb-1">
-                                Select World
+                                Выбор мира
                             </label>
                             {worlds.length > 0 ? (
                                 <div className="flex gap-2 min-w-0">
@@ -136,41 +136,41 @@ const QuickStats = () => {
                                     <button
                                         onClick={async () => {
                                             const selectedWorld = worlds.find((w: any) => w.id === activeWorldId);
-                                            if (selectedWorld && confirm(`Delete world "${selectedWorld.name}"? This cannot be undone.`)) {
+                                            if (selectedWorld && confirm(`Удалить мир "${selectedWorld.name}"? Это действие нельзя отменить.`)) {
                                                 try {
                                                     const { mcpManager } = await import('../../services/mcpClient');
                                                     await mcpManager.gameStateClient.callTool('world_manage', { action: 'delete', id: activeWorldId });
                                                     await useGameStateStore.getState().syncState(true);
                                                 } catch (e) {
                                                     console.error('Failed to delete world:', e);
-                                                    alert('Failed to delete world');
+                                                    alert('Не удалось удалить мир');
                                                 }
                                             }
                                         }}
                                         className="shrink-0 px-2 py-1 bg-red-900/30 border border-red-500/50 text-red-400 text-xs rounded hover:bg-red-900/50 transition-colors"
-                                        title="Delete selected world"
+                                        title="Удалить выбранный мир"
                                     >
                                         🗑️
                                     </button>
                                 </div>
                             ) : (
                                 <div className="text-terminal-green/70 text-xs space-y-1">
-                                    <div>No worlds available.</div>
+                                    <div>Миры недоступны.</div>
                                     <div className="text-terminal-green/50">
-                                        Type <code className="bg-terminal-green/20 px-1 rounded">/new</code> in chat to create a campaign with a new world.
+                                        Введи <code className="bg-terminal-green/20 px-1 rounded">/new</code> в чате, чтобы создать кампанию с новым миром.
                                     </div>
                                 </div>
                             )}
                         </div>
 
                         <div className="flex items-center gap-2 text-terminal-green-bright mb-1">
-                            <span className="shrink-0">World</span>
-                            <span className="font-bold truncate" title={world.location || 'Unknown Location'}>{world.location || 'Unknown Location'}</span>
+                            <span className="shrink-0">Мир</span>
+                            <span className="font-bold truncate" title={world.location || 'Неизвестная локация'}>{world.location || 'Неизвестная локация'}</span>
                         </div>
                         <div className="text-xs text-terminal-green/70 pl-6 space-y-1">
-                            <div>Time: {world.time || 'Unknown'}</div>
-                            <div>Weather: {world.weather || 'Unknown'}</div>
-                            <div>Date: {world.date || 'Unknown'}</div>
+                            <div>Время: {world.time || 'неизвестно'}</div>
+                            <div>Погода: {world.weather || 'неизвестно'}</div>
+                            <div>Дата: {world.date || 'неизвестно'}</div>
                         </div>
                     </div>
                 </div>

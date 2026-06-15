@@ -13,10 +13,10 @@ interface SelectedMember {
 }
 
 const ROLE_OPTIONS: { value: MemberRole; label: string; description: string }[] = [
-  { value: 'leader', label: 'Leader', description: 'Commands the party' },
-  { value: 'member', label: 'Member', description: 'Full party member' },
-  { value: 'companion', label: 'Companion', description: 'Ally, no loot share' },
-  { value: 'hireling', label: 'Hireling', description: 'Paid helper' },
+  { value: 'leader', label: 'Лидер', description: 'Командует группой' },
+  { value: 'member', label: 'Участник', description: 'Полный участник группы' },
+  { value: 'companion', label: 'Спутник', description: 'Союзник без доли добычи' },
+  { value: 'hireling', label: 'Наемник', description: 'Оплачиваемый помощник' },
 ];
 
 export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, onClose }) => {
@@ -94,7 +94,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      setError('Party name is required');
+      setError('Название группы обязательно');
       return;
     }
 
@@ -117,10 +117,10 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
       if (partyId) {
         onClose();
       } else {
-        setError('Failed to create party');
+        setError('Не удалось создать группу');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to create party');
+      setError(err.message || 'Не удалось создать группу');
     } finally {
       setLoading(false);
     }
@@ -147,6 +147,11 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
   };
 
   const steps = ['info', 'members', 'review'] as const;
+  const stepLabels: Record<(typeof steps)[number], string> = {
+    info: 'детали',
+    members: 'участники',
+    review: 'итог',
+  };
   const currentStepIndex = steps.indexOf(step);
 
   const renderInfoStep = () => (
@@ -154,32 +159,32 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
       {/* Party Name */}
       <div>
         <label className="block text-sm font-bold text-terminal-green mb-2">
-          PARTY NAME <span className="text-red-400">*</span>
+          НАЗВАНИЕ ГРУППЫ <span className="text-red-400">*</span>
         </label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full bg-terminal-black border-2 border-terminal-green/50 text-terminal-green px-4 py-3 rounded-lg focus:outline-none focus:border-terminal-green-bright focus:shadow-[0_0_10px_rgba(0,255,0,0.3)] transition-all"
-          placeholder="The Fellowship of the Ring..."
+          placeholder="Братство кольца..."
           autoFocus
           maxLength={50}
         />
         {name.length > 0 && name.length < 2 && (
-          <p className="text-red-400 text-xs mt-1">Name must be at least 2 characters</p>
+          <p className="text-red-400 text-xs mt-1">Название должно быть не короче 2 символов</p>
         )}
       </div>
 
       {/* Description */}
       <div>
         <label className="block text-sm font-bold text-terminal-green mb-2">
-          DESCRIPTION <span className="text-terminal-green/50 text-xs font-normal">(optional)</span>
+          ОПИСАНИЕ <span className="text-terminal-green/50 text-xs font-normal">(необязательно)</span>
         </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="w-full h-24 bg-terminal-black border border-terminal-green/50 text-terminal-green px-4 py-3 rounded-lg focus:outline-none focus:border-terminal-green-bright resize-none"
-          placeholder="A band of adventurers united by fate..."
+          placeholder="Отряд героев, объединенных судьбой..."
           maxLength={200}
         />
         <div className="text-xs text-terminal-green/50 text-right mt-1">{description.length}/200</div>
@@ -188,9 +193,9 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
       {/* World Info */}
       {activeWorldId && worlds.length > 0 && (
         <div className="border border-terminal-green/30 rounded-lg p-3 bg-terminal-green/5">
-          <div className="text-xs text-terminal-green/60 mb-1">Will be linked to:</div>
+          <div className="text-xs text-terminal-green/60 mb-1">Будет связано с:</div>
           <div className="text-sm text-terminal-green font-medium">
-            {worlds.find((w: any) => w.id === activeWorldId)?.name || 'Current World'}
+            {worlds.find((w: any) => w.id === activeWorldId)?.name || 'Текущий мир'}
           </div>
         </div>
       )}
@@ -200,13 +205,13 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
   const renderMembersStep = () => (
     <div className="space-y-4 animate-fadeIn">
       <div className="text-sm text-terminal-green/70 mb-2">
-        Select characters to add to your party. You can always add more later.
+        Выбери персонажей для группы. Новых участников можно добавить позже.
       </div>
 
       {/* Available Characters */}
       <div className="border border-terminal-green/30 rounded-lg overflow-hidden">
         <div className="bg-terminal-green/10 px-3 py-2 text-xs font-bold text-terminal-green/80 uppercase tracking-wider">
-          Available Characters ({availableCharacters.length})
+          Доступные персонажи ({availableCharacters.length})
         </div>
 
         <div className="max-h-64 overflow-y-auto">
@@ -246,7 +251,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-terminal-green truncate">{char.name}</div>
                     <div className="text-xs text-terminal-green/60">
-                      Level {char.level} {char.class}
+                      Ур. {char.level} {char.class}
                       {char.race && ` · ${char.race}`}
                     </div>
                   </div>
@@ -276,7 +281,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
             })
           ) : (
             <div className="p-4 text-center text-terminal-green/50 text-sm">
-              No characters available. Create characters first!
+              Персонажей нет. Сначала создай персонажей.
             </div>
           )}
         </div>
@@ -286,7 +291,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
       {selectedMembers.length > 0 && (
         <div className="border border-terminal-green/30 rounded-lg p-3 bg-terminal-green/5">
           <div className="text-xs text-terminal-green/60 mb-2">
-            Selected: {selectedMembers.length} character{selectedMembers.length !== 1 ? 's' : ''}
+            Выбрано персонажей: {selectedMembers.length}
           </div>
           <div className="flex flex-wrap gap-2">
             {selectedMembers.map((m) => {
@@ -301,7 +306,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
                   }`}
                 >
                   {m.role === 'leader' && '★ '}
-                  {char?.name || 'Unknown'}
+                  {char?.name || 'неизвестно'}
                 </span>
               );
             })}
@@ -315,18 +320,18 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
     <div className="space-y-4 animate-fadeIn">
       {/* Party Card Preview */}
       <div className="border-2 border-terminal-green rounded-xl p-5 bg-terminal-green/5">
-        <h3 className="text-xl font-bold text-terminal-green-bright mb-1">{name || 'Unnamed Party'}</h3>
+        <h3 className="text-xl font-bold text-terminal-green-bright mb-1">{name || 'Безымянная группа'}</h3>
         {description && <p className="text-sm text-terminal-green/70 mb-3 italic">"{description}"</p>}
 
         <div className="grid grid-cols-2 gap-4 mt-4">
           <div className="bg-black/30 rounded-lg p-3">
-            <div className="text-xs text-terminal-green/60 mb-1">Members</div>
+            <div className="text-xs text-terminal-green/60 mb-1">Участники</div>
             <div className="text-2xl font-bold text-terminal-green">{selectedMembers.length}</div>
           </div>
           <div className="bg-black/30 rounded-lg p-3">
-            <div className="text-xs text-terminal-green/60 mb-1">Leader</div>
+            <div className="text-xs text-terminal-green/60 mb-1">Лидер</div>
             <div className="text-lg font-medium text-yellow-400 truncate">
-              {leaderChar?.name || 'None assigned'}
+              {leaderChar?.name || 'не назначен'}
             </div>
           </div>
         </div>
@@ -334,7 +339,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
         {/* Members List */}
         {selectedMembers.length > 0 && (
           <div className="mt-4 pt-4 border-t border-terminal-green/20">
-            <div className="text-xs text-terminal-green/60 mb-2">Party Roster</div>
+            <div className="text-xs text-terminal-green/60 mb-2">Состав группы</div>
             <div className="space-y-1">
               {selectedMembers.map((m) => {
                 const char = getCharacterById(m.characterId);
@@ -342,7 +347,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
                   <div key={m.characterId} className="flex items-center justify-between text-sm">
                     <span className="text-terminal-green">
                       {m.role === 'leader' && <span className="text-yellow-400 mr-1">★</span>}
-                      {char?.name || 'Unknown'}
+                      {char?.name || 'неизвестно'}
                     </span>
                     <span className="text-terminal-green/50 text-xs capitalize">{m.role}</span>
                   </div>
@@ -368,7 +373,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
         <div className="p-4 border-b border-terminal-green/30 bg-terminal-green/5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-bold text-terminal-green flex items-center gap-2">
-              + CREATE PARTY
+              + СОЗДАТЬ ГРУППУ
             </h2>
             <button
               onClick={onClose}
@@ -398,7 +403,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
                   i === currentStepIndex ? 'text-terminal-green font-bold' : 'text-terminal-green/40'
                 }`}
               >
-                {s === 'info' ? 'Details' : s}
+                {stepLabels[s]}
               </span>
             ))}
           </div>
@@ -417,7 +422,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
             onClick={onClose}
             className="px-4 py-2 border border-terminal-green/50 text-terminal-green rounded-lg hover:bg-terminal-green/10 transition-colors"
           >
-            Cancel
+            Отмена
           </button>
 
           <div className="flex-1" />
@@ -427,7 +432,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
               onClick={goBack}
               className="px-4 py-2 border border-terminal-green/50 text-terminal-green rounded-lg hover:bg-terminal-green/10 transition-colors"
             >
-              Back
+              Назад
             </button>
           )}
 
@@ -437,7 +442,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
               disabled={!canProceed()}
               className="px-6 py-2 bg-terminal-green text-black font-bold rounded-lg hover:bg-terminal-green-bright transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(0,255,0,0.3)]"
             >
-              Next
+              Далее
             </button>
           ) : (
             <button
@@ -448,10 +453,10 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
               {loading ? (
                 <>
                   <span className="animate-spin">*</span>
-                  Creating...
+                  Создание...
                 </>
               ) : (
-                'Create Party'
+                'Создать группу'
               )}
             </button>
           )}

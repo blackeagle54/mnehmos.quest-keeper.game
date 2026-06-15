@@ -13,16 +13,16 @@ interface CharacterCreationModalProps {
 
 // D&D 5e Race data
 const RACES = {
-    human: { name: 'Human', bonuses: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 }, speed: 30, traits: ['Versatile', 'Extra Language', 'Extra Skill'], description: 'Versatile and ambitious, humans are the most adaptable of all races.' },
-    elf: { name: 'Elf', bonuses: { dex: 2 }, speed: 30, traits: ['Darkvision', 'Fey Ancestry', 'Trance'], description: 'Graceful and long-lived, elves are masters of magic and art.' },
-    dwarf: { name: 'Dwarf', bonuses: { con: 2 }, speed: 25, traits: ['Darkvision', 'Dwarven Resilience', 'Stonecunning'], description: 'Hardy and steadfast, dwarves are renowned smiths and warriors.' },
-    halfling: { name: 'Halfling', bonuses: { dex: 2 }, speed: 25, traits: ['Lucky', 'Brave', 'Nimbleness'], description: 'Small but brave, halflings are cheerful and resourceful.' },
-    dragonborn: { name: 'Dragonborn', bonuses: { str: 2, cha: 1 }, speed: 30, traits: ['Breath Weapon', 'Damage Resistance'], description: 'Proud dragon descendants with elemental breath attacks.' },
-    gnome: { name: 'Gnome', bonuses: { int: 2 }, speed: 25, traits: ['Darkvision', 'Gnome Cunning'], description: 'Curious inventors with a natural resistance to magic.' },
-    halfElf: { name: 'Half-Elf', bonuses: { cha: 2 }, speed: 30, traits: ['Darkvision', 'Fey Ancestry', 'Skill Versatility'], extraStats: 2, description: 'Combining human ambition with elven grace.' },
-    halfOrc: { name: 'Half-Orc', bonuses: { str: 2, con: 1 }, speed: 30, traits: ['Darkvision', 'Relentless Endurance', 'Savage Attacks'], description: 'Powerful warriors with orcish strength and human cunning.' },
-    tiefling: { name: 'Tiefling', bonuses: { cha: 2, int: 1 }, speed: 30, traits: ['Darkvision', 'Hellish Resistance', 'Infernal Legacy'], description: 'Touched by infernal heritage, tieflings face prejudice with defiance.' },
-    hobbit: { name: 'Hobbit', bonuses: { dex: 2, cha: 1 }, speed: 25, traits: ['Lucky', 'Brave', 'Halfling Nimbleness', 'Second Breakfast'], description: 'Peaceful folk who love comfort, good food, and unexpected adventures.' },
+    human: { name: 'Human', bonuses: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 }, speed: 30, traits: ['Versatile', 'Extra Language', 'Extra Skill'], description: 'Разносторонние и амбициозные, люди легче других приспосабливаются к любым обстоятельствам.' },
+    elf: { name: 'Elf', bonuses: { dex: 2 }, speed: 30, traits: ['Darkvision', 'Fey Ancestry', 'Trance'], description: 'Изящные долгожители, мастера магии, искусства и тонкого восприятия мира.' },
+    dwarf: { name: 'Dwarf', bonuses: { con: 2 }, speed: 25, traits: ['Darkvision', 'Dwarven Resilience', 'Stonecunning'], description: 'Крепкие и стойкие, дварфы славятся кузнечным делом, ремеслом и воинской честью.' },
+    halfling: { name: 'Halfling', bonuses: { dex: 2 }, speed: 25, traits: ['Lucky', 'Brave', 'Nimbleness'], description: 'Маленькие, смелые и находчивые, халфлинги часто улыбаются опасности в лицо.' },
+    dragonborn: { name: 'Dragonborn', bonuses: { str: 2, cha: 1 }, speed: 30, traits: ['Breath Weapon', 'Damage Resistance'], description: 'Гордые потомки драконов с наследием стихийной силы.' },
+    gnome: { name: 'Gnome', bonuses: { int: 2 }, speed: 25, traits: ['Darkvision', 'Gnome Cunning'], description: 'Любопытные изобретатели с природной устойчивостью к магии.' },
+    halfElf: { name: 'Half-Elf', bonuses: { cha: 2 }, speed: 30, traits: ['Darkvision', 'Fey Ancestry', 'Skill Versatility'], extraStats: 2, description: 'Сочетают человеческую амбицию с эльфийской грацией.' },
+    halfOrc: { name: 'Half-Orc', bonuses: { str: 2, con: 1 }, speed: 30, traits: ['Darkvision', 'Relentless Endurance', 'Savage Attacks'], description: 'Сильные воины, в которых орочья мощь соединяется с человеческой хитростью.' },
+    tiefling: { name: 'Tiefling', bonuses: { cha: 2, int: 1 }, speed: 30, traits: ['Darkvision', 'Hellish Resistance', 'Infernal Legacy'], description: 'Отмеченные инфернальным наследием, тифлинги часто встречают предрассудки с вызовом.' },
+    hobbit: { name: 'Hobbit', bonuses: { dex: 2, cha: 1 }, speed: 25, traits: ['Lucky', 'Brave', 'Halfling Nimbleness', 'Second Breakfast'], description: 'Мирный народ, который любит уют, хорошую еду и неожиданные приключения.' },
 } as const;
 
 // D&D 5e Class data
@@ -65,12 +65,12 @@ interface RollResult {
 
 const STAT_NAMES: StatName[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 const STAT_LABELS: Record<StatName, string> = {
-    str: 'Strength',
-    dex: 'Dexterity', 
-    con: 'Constitution',
-    int: 'Intelligence',
-    wis: 'Wisdom',
-    cha: 'Charisma'
+    str: 'Сила',
+    dex: 'Ловкость',
+    con: 'Телосложение',
+    int: 'Интеллект',
+    wis: 'Мудрость',
+    cha: 'Харизма'
 };
 const STAT_ICONS: Record<StatName, string> = {
     str: '💪',
@@ -164,7 +164,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
     // Get current provider info for display
     const selectedProvider = useSettingsStore((state) => state.selectedProvider);
     const apiKeys = useSettingsStore((state) => state.apiKeys);
-    const hasApiKey = !!apiKeys[selectedProvider];
+    const hasApiKey = selectedProvider === 'codex' || !!apiKeys[selectedProvider];
     
     const syncState = useGameStateStore((state) => state.syncState);
     const setActiveCharacterId = useGameStateStore((state) => state.setActiveCharacterId);
@@ -176,7 +176,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
     // AI Background Generation handler
     const handleGenerateBackground = useCallback(async () => {
         if (!hasApiKey) {
-            setAiError(`No API key configured for ${selectedProvider}. Configure it in Settings.`);
+            setAiError(`API-ключ для ${selectedProvider} не настроен. Проверь настройки.`);
             return;
         }
         
@@ -603,6 +603,12 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
     };
 
     const steps = ['basics', 'abilities', 'details', 'review'] as const;
+    const stepLabels: Record<(typeof steps)[number], string> = {
+        basics: 'основа',
+        abilities: 'характеристики',
+        details: 'детали',
+        review: 'итог',
+    };
     const currentStepIndex = steps.indexOf(step);
 
     // Step content renderers
@@ -611,24 +617,24 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             {/* Name Input */}
             <div>
                 <label className="block text-sm font-bold text-terminal-green mb-2">
-                    CHARACTER NAME <span className="text-red-400">*</span>
+                    ИМЯ ПЕРСОНАЖА <span className="text-red-400">*</span>
                 </label>
                 <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-black border-2 border-terminal-green/50 text-terminal-green px-4 py-3 rounded-lg focus:outline-none focus:border-terminal-green-bright focus:shadow-[0_0_10px_rgba(0,255,0,0.3)] transition-all"
-                    placeholder="Enter your hero's name..."
+                    placeholder="Введите имя героя..."
                     autoFocus
                 />
                 {name.length > 0 && name.length < 2 && (
-                    <p className="text-red-400 text-xs mt-1">Name must be at least 2 characters</p>
+                    <p className="text-red-400 text-xs mt-1">Имя должно быть не короче 2 символов</p>
                 )}
             </div>
 
             {/* Race Selection */}
             <div>
-                <label className="block text-sm font-bold text-terminal-green mb-2">RACE</label>
+                <label className="block text-sm font-bold text-terminal-green mb-2">РАСА</label>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2">
                     {Object.entries(RACES).map(([key, data]) => (
                         <button
@@ -644,7 +650,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                             <div className="text-xs text-terminal-green/60 mt-1">
                                 {Object.entries(data.bonuses || {}).map(([stat, bonus]) => 
                                     `+${bonus} ${stat.toUpperCase()}`
-                                ).join(', ') || '+1 All'}
+                                ).join(', ') || '+1 ко всем'}
                             </div>
                         </button>
                     ))}
@@ -656,7 +662,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             {race === 'halfElf' && (
                 <div className="border border-amber-500/50 rounded-lg p-4 bg-amber-500/10 animate-fadeIn">
                     <label className="block text-sm font-bold text-amber-400 mb-3">
-                        🌟 HALF-ELF BONUS STATS <span className="text-xs font-normal">(Choose 2)</span>
+                        🌟 БОНУСЫ ПОЛУЭЛЬФА <span className="text-xs font-normal">(выбери 2)</span>
                     </label>
                     <div className="flex flex-wrap gap-2">
                         {STAT_NAMES.filter(s => s !== 'cha').map(stat => (
@@ -674,14 +680,14 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                         ))}
                     </div>
                     {halfElfBonuses.length < 2 && (
-                        <p className="mt-2 text-xs text-amber-400">Select {2 - halfElfBonuses.length} more</p>
+                        <p className="mt-2 text-xs text-amber-400">Выбери еще: {2 - halfElfBonuses.length}</p>
                     )}
                 </div>
             )}
 
             {/* Class Selection */}
             <div>
-                <label className="block text-sm font-bold text-terminal-green mb-2">CLASS</label>
+                <label className="block text-sm font-bold text-terminal-green mb-2">КЛАСС</label>
                 <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-2">
                     {Object.entries(CLASSES).map(([key, data]) => (
                         <button
@@ -699,16 +705,16 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                     ))}
                 </div>
                 <div className="flex justify-between text-xs text-terminal-green/60 mt-2 px-1">
-                    <span>Hit Die: d{CLASSES[charClass].hitDie}</span>
-                    <span>Primary: {CLASSES[charClass].primaryStat.toUpperCase()}</span>
-                    <span>Saves: {CLASSES[charClass].saves.map(s => s.toUpperCase()).join(', ')}</span>
+                    <span>Кость HP: d{CLASSES[charClass].hitDie}</span>
+                    <span>Основная: {CLASSES[charClass].primaryStat.toUpperCase()}</span>
+                    <span>Спасброски: {CLASSES[charClass].saves.map(s => s.toUpperCase()).join(', ')}</span>
                 </div>
             </div>
 
             {/* Level Slider */}
             <div>
                 <label className="block text-sm font-bold text-terminal-green mb-2">
-                    STARTING LEVEL: <span className="text-terminal-green-bright text-lg">{level}</span>
+                    СТАРТОВЫЙ УРОВЕНЬ: <span className="text-terminal-green-bright text-lg">{level}</span>
                 </label>
                 <input
                     type="range"
@@ -731,13 +737,13 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
         <div className="space-y-4 animate-fadeIn">
             {/* Method Selection */}
             <div>
-                <label className="block text-sm font-bold text-terminal-green mb-2">ABILITY SCORE METHOD</label>
+                <label className="block text-sm font-bold text-terminal-green mb-2">МЕТОД ХАРАКТЕРИСТИК</label>
                 <div className="grid grid-cols-4 gap-2">
                     {([
-                        { key: 'roll', label: '🎲 Roll', desc: '4d6 drop lowest' },
-                        { key: 'pointBuy', label: '🎯 Point Buy', desc: '27 points' },
-                        { key: 'standardArray', label: '📊 Standard', desc: '15,14,13,12,10,8' },
-                        { key: 'manual', label: '✏️ Manual', desc: 'Enter directly' }
+                        { key: 'roll', label: '🎲 Броски', desc: '4d6 без меньшей' },
+                        { key: 'pointBuy', label: '🎯 Покупка', desc: '27 очков' },
+                        { key: 'standardArray', label: '📊 Стандарт', desc: '15,14,13,12,10,8' },
+                        { key: 'manual', label: '✏️ Вручную', desc: 'Ввод чисел' }
                     ] as const).map(({ key, label, desc }) => (
                         <button
                             key={key}
@@ -767,10 +773,10 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                         {isRollingAll ? (
                             <>
                                 <span className="animate-bounce">🎲</span>
-                                Rolling...
+                                Бросаю...
                             </>
                         ) : (
-                            <>🎲 ROLL ALL STATS</>
+                            <>🎲 БРОСИТЬ ВСЕ</>
                         )}
                     </button>
                     
@@ -796,7 +802,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                                         {roll && roll.dice.length > 0 ? (
                                             <DiceDisplay roll={roll} />
                                         ) : (
-                                            <span className="text-xs text-terminal-green/40">Not rolled</span>
+                                            <span className="text-xs text-terminal-green/40">нет броска</span>
                                         )}
                                     </div>
                                     
@@ -819,7 +825,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                     </div>
                     
                     {!allStatsRolled && (
-                        <p className="text-amber-400 text-xs mt-3 text-center">Roll all stats to continue</p>
+                        <p className="text-amber-400 text-xs mt-3 text-center">Брось все характеристики, чтобы продолжить</p>
                     )}
                 </div>
             )}
@@ -828,7 +834,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             {abilityMethod === 'pointBuy' && (
                 <div className="border border-terminal-green/30 rounded-lg p-4 bg-terminal-green/5">
                     <div className="flex justify-between items-center mb-4">
-                        <span className="text-sm text-terminal-green/80">Points Remaining:</span>
+                        <span className="text-sm text-terminal-green/80">Осталось очков:</span>
                         <span className={`text-2xl font-bold ${
                             pointsRemaining < 0 ? 'text-red-500' : 
                             pointsRemaining === 0 ? 'text-terminal-green-bright' : 'text-amber-400'
@@ -855,7 +861,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                                         className="w-8 h-8 rounded bg-terminal-green/20 text-terminal-green font-bold disabled:opacity-30 hover:bg-terminal-green/40 transition-colors"
                                     >+</button>
                                 </div>
-                                <span className="text-xs text-terminal-green/50 w-12">({POINT_BUY_COSTS[baseStats[stat]]} pts)</span>
+                        <span className="text-xs text-terminal-green/50 w-12">({POINT_BUY_COSTS[baseStats[stat]]} очк.)</span>
                                 {racialBonuses[stat] > 0 && (
                                     <span className="text-cyan-400 text-sm font-bold">+{racialBonuses[stat]}</span>
                                 )}
@@ -872,7 +878,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             {abilityMethod === 'standardArray' && (
                 <div className="border border-terminal-green/30 rounded-lg p-4 bg-terminal-green/5">
                     <div className="mb-3 text-sm text-terminal-green/80">
-                        Assign each value: <span className="font-mono text-terminal-green-bright">{STANDARD_ARRAY.join(' • ')}</span>
+                        Назначь каждое значение: <span className="font-mono text-terminal-green-bright">{STANDARD_ARRAY.join(' • ')}</span>
                     </div>
                     <div className="space-y-3">
                         {STAT_NAMES.map(stat => (
@@ -902,7 +908,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                         ))}
                     </div>
                     {usedArrayValues.length < 6 && (
-                        <p className="text-amber-400 text-xs mt-3">Assign all 6 values to continue</p>
+                        <p className="text-amber-400 text-xs mt-3">Назначь все 6 значений, чтобы продолжить</p>
                     )}
                 </div>
             )}
@@ -910,7 +916,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             {/* Manual Entry Interface */}
             {abilityMethod === 'manual' && (
                 <div className="border border-terminal-green/30 rounded-lg p-4 bg-terminal-green/5">
-                    <div className="mb-3 text-sm text-terminal-green/80">Enter scores (3-18)</div>
+                    <div className="mb-3 text-sm text-terminal-green/80">Введи значения (3-18)</div>
                     <div className="space-y-3">
                         {STAT_NAMES.map(stat => (
                             <div key={stat} className="flex items-center gap-3">
@@ -939,13 +945,13 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             {/* Computed Stats Preview */}
             <div className="grid grid-cols-2 gap-4 pt-2 border-t border-terminal-green/20">
                 <div className="bg-red-900/20 rounded-lg p-3 text-center border border-red-500/30">
-                    <div className="text-xs text-red-400 mb-1">HIT POINTS</div>
+                    <div className="text-xs text-red-400 mb-1">ХИТЫ</div>
                     <div className="text-3xl font-bold text-red-300">{maxHp}</div>
                 </div>
                 <div className="bg-blue-900/20 rounded-lg p-3 text-center border border-blue-500/30">
-                    <div className="text-xs text-blue-400 mb-1">ARMOR CLASS</div>
+                    <div className="text-xs text-blue-400 mb-1">КЛАСС БРОНИ</div>
                     <div className="text-3xl font-bold text-blue-300">{baseAc}</div>
-                    <div className="text-xs text-blue-400/60">unarmored</div>
+                    <div className="text-xs text-blue-400/60">без брони</div>
                 </div>
             </div>
         </div>
@@ -956,7 +962,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             {/* Portrait Color Selection */}
             <div>
                 <label className="block text-sm font-bold text-terminal-green mb-3">
-                    CHARACTER COLOR <span className="text-xs font-normal text-terminal-green/60">(for tokens & UI)</span>
+                    ЦВЕТ ПЕРСОНАЖА <span className="text-xs font-normal text-terminal-green/60">(для токенов и интерфейса)</span>
                 </label>
                 <div className="flex flex-wrap gap-3">
                     {PORTRAIT_COLORS.map((color) => (
@@ -977,7 +983,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                         />
                     ))}
                 </div>
-                <p className="text-xs text-terminal-green/50 mt-2">Selected: {portraitColor.name}</p>
+                <p className="text-xs text-terminal-green/50 mt-2">Выбрано: {portraitColor.name}</p>
             </div>
 
             {/* Character Portrait Preview */}
@@ -998,7 +1004,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             <div>
                 <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-bold text-terminal-green">
-                        BACKGROUND STORY <span className="text-xs font-normal text-terminal-green/60">(optional)</span>
+                        ПРЕДЫСТОРИЯ <span className="text-xs font-normal text-terminal-green/60">(необязательно)</span>
                     </label>
                     <button
                         onClick={handleGenerateBackground}
@@ -1010,16 +1016,16 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                                     ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-[0_0_10px_rgba(168,85,247,0.3)] hover:shadow-[0_0_15px_rgba(168,85,247,0.5)]'
                                     : 'bg-gray-600/50 text-gray-400 cursor-not-allowed'
                         }`}
-                        title={hasApiKey ? `Generate using ${selectedProvider}` : 'Configure API key in Settings'}
+                        title={hasApiKey ? `Сгенерировать через ${selectedProvider}` : 'Настрой API-ключ в настройках'}
                     >
                         {isGeneratingBackground ? (
                             <>
                                 <span className="animate-spin">✨</span>
-                                Generating...
+                                Генерация...
                             </>
                         ) : (
                             <>
-                                ✨ AI Enhance
+                                ✨ Улучшить ИИ
                             </>
                         )}
                     </button>
@@ -1028,7 +1034,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                 <textarea
                     value={background}
                     onChange={(e) => setBackground(e.target.value)}
-                    placeholder="Describe your character's history, motivations, and personality... or click 'AI Enhance' to generate one!"
+                    placeholder="Опиши историю, мотивацию и характер персонажа... или нажми «Улучшить ИИ»."
                     className="w-full h-32 bg-black border border-terminal-green/50 text-terminal-green px-4 py-3 rounded-lg focus:outline-none focus:border-terminal-green-bright resize-none"
                     maxLength={500}
                     disabled={isGeneratingBackground}
@@ -1039,7 +1045,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                             <p className="text-red-400 text-xs">{aiError}</p>
                         )}
                         {!hasApiKey && !aiError && (
-                            <p className="text-amber-400/60 text-xs">Configure API key in Settings to enable AI generation</p>
+                            <p className="text-amber-400/60 text-xs">Настрой API-ключ в настройках, чтобы включить ИИ-генерацию</p>
                         )}
                     </div>
                     <span className="text-xs text-terminal-green/50">
@@ -1051,7 +1057,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             {/* Racial Traits Summary */}
             {RACES[race].traits && (
                 <div className="border border-terminal-green/30 rounded-lg p-4 bg-terminal-green/5">
-                    <h4 className="font-bold text-sm text-terminal-green mb-2">🧬 Racial Traits</h4>
+                    <h4 className="font-bold text-sm text-terminal-green mb-2">🧬 Расовые черты</h4>
                     <div className="flex flex-wrap gap-2">
                         {RACES[race].traits?.map(trait => (
                             <span key={trait} className="px-3 py-1 bg-terminal-green/10 border border-terminal-green/30 rounded-full text-xs">
@@ -1089,12 +1095,12 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                     
                     {/* Info */}
                     <div className="flex-1">
-                        <h3 className="text-2xl font-bold text-white">{name || 'Unnamed Hero'}</h3>
+                        <h3 className="text-2xl font-bold text-white">{name || 'Безымянный герой'}</h3>
                         <p className="text-terminal-green/80">
-                            Level {level} {RACES[race].name} {CLASSES[charClass].name}
+                            Ур. {level} {RACES[race].name} {CLASSES[charClass].name}
                         </p>
                         <p className="text-xs text-terminal-green/50 mt-1">
-                            Speed: {RACES[race].speed}ft
+                            Скорость: {RACES[race].speed} ft
                         </p>
                     </div>
                 </div>
@@ -1102,11 +1108,11 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-3 mt-4">
                     <div className="bg-red-900/30 rounded-lg p-3 text-center">
-                        <div className="text-xs text-red-400">HP</div>
+                        <div className="text-xs text-red-400">ОЗ</div>
                         <div className="text-2xl font-bold text-red-300">{maxHp}</div>
                     </div>
                     <div className="bg-blue-900/30 rounded-lg p-3 text-center">
-                        <div className="text-xs text-blue-400">AC</div>
+                        <div className="text-xs text-blue-400">КД</div>
                         <div className="text-2xl font-bold text-blue-300">{baseAc}</div>
                     </div>
                 </div>
@@ -1125,7 +1131,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                 {/* Traits */}
                 {RACES[race].traits && (
                     <div className="mt-4 pt-4 border-t border-white/10">
-                        <div className="text-xs text-terminal-green/60 mb-2">Racial Traits</div>
+                        <div className="text-xs text-terminal-green/60 mb-2">Расовые черты</div>
                         <div className="flex flex-wrap gap-1">
                             {RACES[race].traits?.map(trait => (
                                 <span key={trait} className="px-2 py-0.5 bg-terminal-green/10 rounded text-xs">
@@ -1139,7 +1145,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                 {/* Background */}
                 {background && (
                     <div className="mt-4 pt-4 border-t border-white/10">
-                        <div className="text-xs text-terminal-green/60 mb-1">Background</div>
+                        <div className="text-xs text-terminal-green/60 mb-1">Предыстория</div>
                         <p className="text-sm text-terminal-green/80 italic">"{background}"</p>
                     </div>
                 )}
@@ -1177,7 +1183,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                 <div className="p-4 border-b border-terminal-green/30 bg-terminal-green/5">
                     <div className="flex items-center justify-between mb-3">
                         <h2 className="text-xl font-bold text-terminal-green flex items-center gap-2">
-                            ⚔️ CREATE CHARACTER
+                            ⚔️ СОЗДАНИЕ ПЕРСОНАЖА
                         </h2>
                         <button
                             onClick={() => { resetForm(); onClose(); }}
@@ -1202,7 +1208,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                     <div className="flex justify-between mt-2">
                         {steps.map((s, i) => (
                             <span key={s} className={`text-xs uppercase ${i === currentStepIndex ? 'text-terminal-green font-bold' : 'text-terminal-green/40'}`}>
-                                {s}
+                                {stepLabels[s]}
                             </span>
                         ))}
                     </div>
@@ -1222,7 +1228,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                         onClick={() => { resetForm(); onClose(); }}
                         className="px-4 py-2 border border-terminal-green/50 text-terminal-green rounded-lg hover:bg-terminal-green/10 transition-colors"
                     >
-                        Cancel
+                        Отмена
                     </button>
                     
                     <div className="flex-1" />
@@ -1232,7 +1238,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                             onClick={goBack}
                             className="px-4 py-2 border border-terminal-green/50 text-terminal-green rounded-lg hover:bg-terminal-green/10 transition-colors"
                         >
-                            ← Back
+                            ← Назад
                         </button>
                     )}
                     
@@ -1242,7 +1248,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                             disabled={!canProceed()}
                             className="px-6 py-2 bg-terminal-green text-black font-bold rounded-lg hover:bg-terminal-green-bright transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(0,255,0,0.3)] hover:shadow-[0_0_20px_rgba(0,255,0,0.5)]"
                         >
-                            Next →
+                            Далее →
                         </button>
                     ) : (
                         <button
@@ -1253,10 +1259,10 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
                             {loading ? (
                                 <>
                                     <span className="animate-spin">⚙️</span>
-                                    Creating...
+                                    Создание...
                                 </>
                             ) : (
-                                <>✓ Create Character</>
+                                <>✓ Создать персонажа</>
                             )}
                         </button>
                     )}

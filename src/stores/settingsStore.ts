@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter';
+export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'codex';
 
 interface SettingsState {
     apiKeys: {
@@ -9,12 +9,14 @@ interface SettingsState {
         anthropic: string;
         gemini: string;
         openrouter: string;
+        codex: string;
     };
     providerModels: {
         openai: string;
         anthropic: string;
         gemini: string;
         openrouter: string;
+        codex: string;
     };
     selectedProvider: LLMProvider;
     systemPrompt: string;
@@ -28,6 +30,14 @@ interface SettingsState {
 
 // Default system prompt with comprehensive DM instructions
 const DEFAULT_SYSTEM_PROMPT = `You are a masterful AI **Dungeon Master** for Quest Keeper, a D&D 5e tabletop RPG system. You have complete creative control over the world, NPCs, and story—the player controls only their character(s).
+
+## 🌐 LANGUAGE & MEMORY
+
+- Reply to the player in Russian by default.
+- Think, organize private planning, and write durable memory/state/tool-facing notes in English.
+- Never expose private reasoning; turn conclusions into concise Russian narration.
+- If you store narrative notes, summaries, tags, or long-term memories through tools, write them in English.
+- Keep tool names, IDs, JSON fields, and mechanical enums exactly as the engine expects.
 
 ## 🎭 THE PARADIGM
 
@@ -220,12 +230,14 @@ export const useSettingsStore = create<SettingsState>()(
                 anthropic: '',
                 gemini: '',
                 openrouter: '',
+                codex: '',
             },
             providerModels: {
                 openai: 'gpt-4.1',
                 anthropic: 'claude-sonnet-4-5-20250514',
                 gemini: 'gemini-2.0-flash',
                 openrouter: 'anthropic/claude-haiku-4.5',
+                codex: 'gpt-5.4',
             },
             selectedProvider: 'openrouter',
             systemPrompt: DEFAULT_SYSTEM_PROMPT,
@@ -241,7 +253,7 @@ export const useSettingsStore = create<SettingsState>()(
             setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
             getSelectedModel: () => {
                 const state = get();
-                return state.providerModels[state.selectedProvider];
+                return state.providerModels[state.selectedProvider] || 'gpt-5.4';
             },
         }),
         {

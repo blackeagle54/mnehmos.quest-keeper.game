@@ -2,9 +2,108 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   SELF-HOSTED FONTS (bundled — work offline in Tauri)
+   Variable woff2: one file covers all weights.
+   ============================================ */
+
+/* Inter — UI / body text */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+/* JetBrains Mono — code, terminal, tabular data */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+/* Cinzel — display / wordmark (engraved Roman caps) */
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/cinzel-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122;
+}
+
 @layer base {
   :root {
-    /* Default (Terminal) Theme Variables - RGB format for opacity support */
+    /* ===== Dark (default) — "Midnight", soft on the eyes ===== */
+    --bg-primary: 24 24 37;        /* #181825 deep ink */
+    --bg-secondary: 49 50 68;      /* #313244 raised panel */
+
+    --text-primary: 205 214 244;   /* #cdd6f4 soft lavender-white */
+    --text-secondary: 82 84 106;   /* #52546a borders / muted */
+    --text-highlight: 180 190 254; /* #b4befe lavender accent */
+
+    --color-amber: 250 179 135;    /* #fab387 peach */
+    --color-cyan: 137 220 235;     /* #89dceb sky */
+    --color-purple: 203 166 247;   /* #cba6f7 mauve */
+    --color-red: 243 139 168;      /* #f38ba8 rose */
+
+    --scanline-color: transparent;
+    --glow-color: rgba(180, 190, 254, 0.35);
+
+    --scrollbar-track: rgba(180, 190, 254, 0.05);
+    --scrollbar-thumb: rgba(180, 190, 254, 0.22);
+    --scrollbar-thumb-hover: rgba(180, 190, 254, 0.45);
+
+    --font-ui: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  }
+
+  /* Dark (explicit selection — mirrors :root) */
+  [data-theme="dark"] {
+    --bg-primary: 24 24 37;
+    --bg-secondary: 49 50 68;
+
+    --text-primary: 205 214 244;
+    --text-secondary: 82 84 106;
+    --text-highlight: 180 190 254;
+
+    --color-amber: 250 179 135;
+    --color-cyan: 137 220 235;
+    --color-purple: 203 166 247;
+    --color-red: 243 139 168;
+
+    --scanline-color: transparent;
+    --glow-color: rgba(180, 190, 254, 0.35);
+
+    --scrollbar-track: rgba(180, 190, 254, 0.05);
+    --scrollbar-thumb: rgba(180, 190, 254, 0.22);
+    --scrollbar-thumb-hover: rgba(180, 190, 254, 0.45);
+
+    --font-ui: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  }
+
+  /* Terminal (classic green CRT) */
+  [data-theme="terminal"] {
     --bg-primary: 10 10 10;
     --bg-secondary: 26 26 26;
 
@@ -17,17 +116,19 @@
     --color-purple: 191 95 255;
     --color-red: 255 68 68;
 
-    /* Semantic Mappings for specific UI elements if needed */
     --scanline-color: rgba(0, 0, 0, 0.2);
     --glow-color: rgba(0, 255, 65, 0.5);
 
     --scrollbar-track: rgba(0, 255, 65, 0.05);
     --scrollbar-thumb: rgba(0, 255, 65, 0.3);
     --scrollbar-thumb-hover: rgba(0, 255, 65, 0.5);
+
+    --font-ui: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
   }
 
   /* Fantasy Theme */
   [data-theme="fantasy"] {
+    --font-ui: 'Inter', 'Segoe UI', system-ui, sans-serif;
     --bg-primary: 240 230 210; /* Parchment */
     --bg-secondary: 230 220 200; /* Darker Parchment */
 
@@ -50,6 +151,7 @@
 
   /* Light (Claude-inspired) Theme */
   [data-theme="light"] {
+    --font-ui: 'Inter', 'Segoe UI', system-ui, sans-serif;
     --bg-primary: 250 248 246; /* Warm Off-White */
     --bg-secondary: 240 239 235; /* Light Warm Gray */
 
@@ -71,7 +173,11 @@
   }
 
   body {
-    @apply bg-terminal-black text-terminal-green font-mono overflow-hidden transition-colors duration-300;
+    @apply bg-terminal-black text-terminal-green overflow-hidden transition-colors duration-300;
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 }
 
@@ -96,7 +202,8 @@
   }
 
   [data-theme="light"] .scanline,
-  [data-theme="fantasy"] .scanline {
+  [data-theme="fantasy"] .scanline,
+  [data-theme="dark"] .scanline {
     display: none; /* Clean look for non-terminal themes */
   }
 
@@ -114,17 +221,25 @@
   }
 
   .markdown-content table {
-    @apply border-collapse border border-terminal-green-dim my-2;
+    @apply w-full border-collapse my-3 text-sm overflow-hidden;
+    border: 1px solid rgb(var(--text-secondary) / 0.6);
+    border-radius: 10px;
   }
 
   .markdown-content th,
   .markdown-content td {
-    @apply border border-terminal-green-dim px-3 py-1;
+    @apply px-3 py-2 text-left align-top;
+    border-bottom: 1px solid rgb(var(--text-secondary) / 0.35);
+  }
+
+  .markdown-content tr:last-child td {
+    border-bottom: none;
   }
 
   .markdown-content th {
-    @apply font-bold;
-    background-color: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
+    @apply font-semibold;
+    color: rgb(var(--text-highlight));
+    background-color: rgb(var(--text-primary) / 0.06);
   }
 
   .markdown-content a {
@@ -245,13 +360,13 @@
 /* Tables - set minimum widths to prevent reflow */
 .markdown-content table {
   table-layout: auto;
-  min-width: fit-content;
+  width: 100%;
 }
 
 .markdown-content th,
 .markdown-content td {
-  min-width: 3em;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
 }
 
 /* ============================================
@@ -281,4 +396,29 @@
 .chat-messages-container {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Global subtle scrollbars for all other scrollable panels */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* Themed text selection */
+::selection {
+  background: rgb(var(--text-highlight) / 0.28);
+  color: rgb(var(--text-primary));
 }

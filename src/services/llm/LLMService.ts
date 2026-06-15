@@ -3,6 +3,7 @@ import { mcpManager } from '../mcpClient';
 import { OpenAIProvider } from './providers/OpenAIProvider';
 import { AnthropicProvider } from './providers/AnthropicProvider';
 import { GeminiProvider } from './providers/GeminiProvider';
+import { CodexProvider } from './providers/CodexProvider';
 import { ChatMessage, LLMProviderInterface, LLMResponse } from './types';
 import { parseMcpResponse, extractEmbeddedStateJson } from '../../utils/mcpUtils';
 import { formatCombatToolResponse } from '../../utils/toolResponseFormatter';
@@ -78,6 +79,7 @@ class LLMService {
             openrouter: new OpenAIProvider('openrouter'),
             anthropic: new AnthropicProvider(),
             gemini: new GeminiProvider(),
+            codex: new CodexProvider(),
         };
     }
 
@@ -85,16 +87,19 @@ class LLMService {
         const { selectedProvider } = useSettingsStore.getState();
         const provider = this.providers[selectedProvider];
         if (!provider) {
-            throw new Error(`Provider ${selectedProvider} not implemented`);
+            throw new Error(`Провайдер ${selectedProvider} не реализован`);
         }
         return provider;
     }
 
     private getApiKey(): string {
         const { apiKeys, selectedProvider } = useSettingsStore.getState();
+        if (selectedProvider === 'codex') {
+            return '';
+        }
         const key = apiKeys[selectedProvider];
         if (!key) {
-            throw new Error(`API Key for ${selectedProvider} is missing. Please configure it in settings.`);
+            throw new Error(`API-ключ для ${selectedProvider} отсутствует. Укажи его в настройках.`);
         }
         return key;
     }
@@ -414,7 +419,7 @@ class LLMService {
                 let responseContent = formattedResult || JSON.stringify(result);
                 if (responseContent.length > MAX_TOOL_RESPONSE_TOKENS * 4) {
                     responseContent = responseContent.slice(0, MAX_TOOL_RESPONSE_TOKENS * 4) 
-                        + '\n\n[...response truncated for context budget. Full data was processed by the engine.]';
+                        + '\n\n[...ответ обрезан из-за лимита контекста. Полные данные обработаны движком.]';
                     console.log(`[LLMService] Truncated tool response for ${toolCall.name}: ${formattedResult?.length || 0} → ${responseContent.length} chars`);
                 }
 
@@ -552,7 +557,7 @@ class LLMService {
                                     let responseContent = formattedResult || JSON.stringify(result);
                                     if (responseContent.length > MAX_TOOL_RESPONSE_TOKENS * 4) {
                                         responseContent = responseContent.slice(0, MAX_TOOL_RESPONSE_TOKENS * 4) 
-                                            + '\n\n[...response truncated for context budget. Full data was processed by the engine.]';
+                                            + '\n\n[...ответ обрезан из-за лимита контекста. Полные данные обработаны движком.]';
                                         console.log(`[LLMService] Truncated tool response for ${toolCall.name}: ${formattedResult?.length || 0} → ${responseContent.length} chars`);
                                     }
 
@@ -587,7 +592,7 @@ class LLMService {
             if (turnCount >= MAX_TOOL_TURNS) {
                 console.warn(`[LLMService] Streaming ended: max tool turns (${MAX_TOOL_TURNS}) reached`);
                 // Provide graceful user feedback instead of freezing
-                callbacks.onChunk('\n\n*[System: Completed ' + turnCount + ' tool operations. If you need more actions, please send another message.]*');
+                callbacks.onChunk('\n\n*[Система: выполнено операций инструментов: ' + turnCount + '. Если нужно больше действий, отправь еще одно сообщение.]*');
             }
 
             callbacks.onComplete();

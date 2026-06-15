@@ -450,7 +450,8 @@ export async function buildSessionResumePrompt(worldId: string, _characterId: st
     
     return `# SESSION RESUME
 
-You are resuming a Quest Keeper AI campaign. Provide a brief "Previously on..." summary to the player.
+You are resuming a Quest Keeper AI campaign. Provide a brief "Previously on..." summary to the player in Russian.
+Think and keep durable memory/state in English, but all player-facing prose in this response must be Russian.
 
 ## Last Session
 ${sessionSummary || 'No previous session recorded.'}
@@ -459,9 +460,9 @@ ${sessionSummary || 'No previous session recorded.'}
 ${plotThreads || 'No active plot threads.'}
 
 ## Instructions
-1. Greet the player warmly
-2. Provide a 2-3 sentence "Previously on..." summary
-3. Ask where they'd like to pick up
+1. Warmly greet the player in Russian
+2. Provide a 2-3 sentence "Previously on..." summary in Russian
+3. Ask in Russian where they'd like to pick up
 `;
   } catch (e) {
     console.warn('[ContextBuilder] Failed to build session resume prompt:', e);

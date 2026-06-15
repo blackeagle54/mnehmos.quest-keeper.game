@@ -22,7 +22,9 @@ export default {
         },
       },
       fontFamily: {
-        mono: ['"Fira Code"', '"Courier New"', 'monospace'],
+        sans: ['Inter', '"Segoe UI"', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', '"Fira Code"', '"Courier New"', 'monospace'],
+        display: ['Cinzel', '"Philosopher"', 'Georgia', 'serif'],
       },
       keyframes: {
         fadeIn: {

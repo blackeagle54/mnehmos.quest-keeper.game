@@ -24,7 +24,7 @@ export const NavBar: React.FC = () => {
         <button
             onClick={() => setPendingCommand(command, true)}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-terminal-green/50 hover:text-terminal-green hover:bg-terminal-green/10 transition-colors text-xs font-mono"
-            title={`Run ${command}`}
+            title={`Выполнить ${command}`}
         >
             <span className="text-sm">{icon}</span>
             <span className="hidden md:block">{command}</span>
@@ -43,21 +43,21 @@ export const NavBar: React.FC = () => {
 
             {/* Navigation Items */}
             <div className="flex-1 flex flex-col gap-1 py-2">
-                <NavItem tab="adventure" icon="📜" label="Adventure" />
-                <NavItem tab="combat" icon="⚔️" label="Combat" />
-                <NavItem tab="character" icon="👤" label="Character" />
-                <NavItem tab="map" icon="🗺️" label="World Map" />
-                <NavItem tab="journal" icon="📓" label="Journal" />
-                <NavItem tab="skills" icon="✨" label="Skills" />
-                <NavItem tab="chains" icon="🔗" label="Chains" />
-                <NavItem tab="achievements" icon="🏆" label="Achievements" />
-                <NavItem tab="reputation" icon="🤝" label="Reputation" />
-                <NavItem tab="workflows" icon="🔁" label="Workflows" />
+                <NavItem tab="adventure" icon="📜" label="Приключение" />
+                <NavItem tab="combat" icon="⚔️" label="Бой" />
+                <NavItem tab="character" icon="👤" label="Персонаж" />
+                <NavItem tab="map" icon="🗺️" label="Карта мира" />
+                <NavItem tab="journal" icon="📓" label="Журнал" />
+                <NavItem tab="skills" icon="✨" label="Навыки" />
+                <NavItem tab="chains" icon="🔗" label="Цепочки" />
+                <NavItem tab="achievements" icon="🏆" label="Достижения" />
+                <NavItem tab="reputation" icon="🤝" label="Репутация" />
+                <NavItem tab="workflows" icon="🔁" label="Сценарии" />
             </div>
 
             {/* Quick Commands Divider */}
             <div className="px-4 py-2 border-t border-terminal-green-dim">
-                <span className="text-xs text-terminal-green/40 uppercase tracking-widest hidden md:block">Quick Actions</span>
+                <span className="text-xs text-terminal-green/40 uppercase tracking-widest hidden md:block">Быстрые действия</span>
             </div>
             
             {/* Quick Command Buttons */}
@@ -71,7 +71,7 @@ export const NavBar: React.FC = () => {
 
             {/* Bottom Actions */}
             <div className="p-2 border-t border-terminal-green-dim">
-                <NavItem tab="settings" icon="⚙️" label="Settings" />
+                <NavItem tab="settings" icon="⚙️" label="Настройки" />
             </div>
         </nav>
     );

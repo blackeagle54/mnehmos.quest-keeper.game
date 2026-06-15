@@ -35,7 +35,7 @@ export const ChatSidebar: React.FC = () => {
 
   const handleDeleteSession = (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation(); // Prevent triggering session switch
-    if (confirm('Are you sure you want to delete this chat?')) {
+    if (confirm('Удалить этот чат?')) {
       deleteSession(sessionId);
       setContextMenu(null); // Close the context menu
     }
@@ -50,7 +50,7 @@ export const ChatSidebar: React.FC = () => {
           className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-terminal-green text-terminal-green hover:bg-terminal-green hover:text-terminal-black transition-all duration-200 uppercase tracking-wider font-bold text-sm"
         >
           <span className="codicon codicon-add" />
-          New Chat
+          Новый чат
         </button>
       </div>
 
@@ -68,7 +68,7 @@ export const ChatSidebar: React.FC = () => {
             }`}
           >
             <div className="pr-6 truncate font-mono text-sm">
-              {session.title || 'New Chat'}
+              {session.title || 'Новый чат'}
             </div>
             <div className="text-xs opacity-50 mt-1">
               {new Date(session.updatedAt).toLocaleDateString()}
@@ -78,7 +78,7 @@ export const ChatSidebar: React.FC = () => {
             <button
               onClick={(e) => handleDeleteSession(e, session.id)}
               className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-opacity"
-              title="Delete Chat"
+              title="Удалить чат"
             >
               <span className="codicon codicon-trash" />
             </button>
@@ -87,7 +87,7 @@ export const ChatSidebar: React.FC = () => {
 
         {sessions.length === 0 && (
           <div className="text-center text-terminal-green/30 py-8 text-sm italic">
-            No active chats
+            Нет активных чатов
           </div>
         )}
       </div>
@@ -103,7 +103,7 @@ export const ChatSidebar: React.FC = () => {
             className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-terminal-green/10 flex items-center gap-2"
           >
             <span className="codicon codicon-trash" />
-            Delete Chat
+            Удалить чат
           </button>
         </div>
       )}

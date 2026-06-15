@@ -38,17 +38,17 @@ interface WorldGenerationModalProps {
 // ============================================
 
 const GENERATION_PHASES = [
-  { id: 'init', label: 'Initializing world seed...', duration: 300 },
-  { id: 'tectonic', label: 'Tectonic plates shifting...', duration: 500 },
-  { id: 'heightmap', label: 'Mountains rising from the depths...', duration: 600 },
-  { id: 'climate', label: 'Winds carrying moisture across the land...', duration: 500 },
-  { id: 'biomes', label: 'Forests, deserts, and tundras forming...', duration: 600 },
-  { id: 'rivers', label: 'Rivers carving through valleys...', duration: 500 },
-  { id: 'lakes', label: 'Lakes filling mountain basins...', duration: 400 },
-  { id: 'regions', label: 'Ancient kingdoms claiming territory...', duration: 600 },
-  { id: 'structures', label: 'Cities rising along trade routes...', duration: 800 },
-  { id: 'lore', label: 'Legends being written...', duration: 0 }, // Duration handled by LLM
-  { id: 'complete', label: 'World generation complete!', duration: 500 },
+  { id: 'init', label: 'Инициализация сида мира...', duration: 300 },
+  { id: 'tectonic', label: 'Тектонические плиты приходят в движение...', duration: 500 },
+  { id: 'heightmap', label: 'Горы поднимаются из глубин...', duration: 600 },
+  { id: 'climate', label: 'Ветра несут влагу через земли...', duration: 500 },
+  { id: 'biomes', label: 'Формируются леса, пустыни и тундры...', duration: 600 },
+  { id: 'rivers', label: 'Реки прорезают долины...', duration: 500 },
+  { id: 'lakes', label: 'Озера наполняют горные чаши...', duration: 400 },
+  { id: 'regions', label: 'Древние королевства заявляют права на земли...', duration: 600 },
+  { id: 'structures', label: 'Города растут вдоль торговых путей...', duration: 800 },
+  { id: 'lore', label: 'Легенды записываются...', duration: 0 }, // Duration handled by LLM
+  { id: 'complete', label: 'Генерация мира завершена!', duration: 500 },
 ];
 
 // ============================================
@@ -73,7 +73,9 @@ export const WorldGenerationModal: React.FC<WorldGenerationModalProps> = ({
   const abortRef = useRef(false);
   const hasStartedRef = useRef(false);
 
-  const apiKey = useSettingsStore((s) => s.apiKeys.openrouter);
+  const selectedProvider = useSettingsStore((s) => s.selectedProvider);
+  const selectedApiKey = useSettingsStore((s) => s.apiKeys[s.selectedProvider]);
+  const hasAiProvider = selectedProvider === 'codex' || Boolean(selectedApiKey);
 
   // Add log entry
   const addLog = useCallback((message: string, type: GenerationLog['type'] = 'info') => {
@@ -109,6 +111,7 @@ ${loreContext}
 Generate a name and one-sentence description for a ${poi.type.toLowerCase()} at coordinates (${poi.location?.x || poi.x}, ${poi.location?.y || poi.y}).
 
 IMPORTANT: Reference existing locations if any for connected world-building.
+Think and keep durable world-building notes in English. Write Name and Description for the player in Russian.
 
 Respond in this exact format:
 Name: [evocative fantasy name]
@@ -161,8 +164,8 @@ Description: [one atmospheric sentence]`;
       // Structures phase - actual MCP call
       setCurrentPhase(8);
       setProgress(75);
-      addLog('Cities rising along trade routes...');
-      addLog('Calling MCP generate_world...', 'info');
+      addLog('Города растут вдоль торговых путей...');
+      addLog('Вызываю MCP world_manage/generate...', 'info');
       
       console.log('[WorldGen] Calling generate_world with seed:', actualSeed);
       
@@ -183,25 +186,25 @@ Description: [one atmospheric sentence]`;
         // payload — a raw JSON.parse would choke on the leading prose.
         const data = extractEmbeddedJson<any>(content.text, 'WORLD_MANAGE_JSON');
         if (!data) {
-          throw new Error('Could not parse world_manage generate response');
+          throw new Error('Не удалось разобрать ответ world_manage/generate');
         }
         worldId = data.worldId || data.id;
         console.log('[WorldGen] World ID:', worldId);
         
         if (!worldId) {
-          throw new Error('No world ID returned from generate_world');
+          throw new Error('world_manage/generate не вернул ID мира');
         }
         
         // worldId is used directly in onComplete callback
-        addLog(`World created with ID: ${worldId.slice(0, 8)}...`, 'success');
+        addLog(`Мир создан, ID: ${worldId.slice(0, 8)}...`, 'success');
         
         // world_manage generate returns structureCount (a number), not an array.
         // Fetch actual structures from world_map (action: tiles) for LLM lore.
         const structureCount = data.structureCount ?? data.stats?.structures ?? 0;
-        addLog(`World has ${structureCount} points of interest`, 'success');
+        addLog(`В мире точек интереса: ${structureCount}`, 'success');
         
         if (structureCount > 0) {
-          addLog('Fetching structure details...', 'info');
+          addLog('Загружаю детали структур...', 'info');
           try {
             const tilesResult = await mcpManager.gameStateClient.callTool('world_map', {
               action: 'tiles',
@@ -215,30 +218,30 @@ Description: [one atmospheric sentence]`;
               // so a null parse here is a FAILURE: throw and let the catch below
               // surface it instead of silently claiming "0 structures" succeeded.
               if (!tilesData) {
-                throw new Error('Could not parse world_map tiles response');
+                throw new Error('Не удалось разобрать ответ world_map/tiles');
               }
               // Envelope parsed: trust its (possibly-empty) structures array.
               structures = Array.isArray(tilesData.structures) ? tilesData.structures : [];
               console.log('[WorldGen] Fetched structures:', structures.length);
-              addLog(`Retrieved ${structures.length} structure details`, 'success');
+              addLog(`Получено структур: ${structures.length}`, 'success');
             } else {
-              throw new Error('Invalid response from world_map tiles');
+              throw new Error('Некорректный ответ world_map/tiles');
             }
           } catch (e) {
             console.warn('[WorldGen] Failed to fetch structure details:', e);
-            addLog('⚠️ Could not fetch structure details', 'info');
+            addLog('⚠️ Не удалось загрузить детали структур', 'info');
           }
         }
       } else {
-        throw new Error('Invalid response from generate_world');
+        throw new Error('Некорректный ответ generate_world');
       }
 
       // LLM Lore Generation Phase
       setCurrentPhase(9);
       setProgress(85);
       
-      if (!abortRef.current && structures.length > 0 && apiKey) {
-        addLog('The scribes begin recording the legends...', 'lore');
+      if (!abortRef.current && structures.length > 0 && hasAiProvider) {
+        addLog('Летописцы начинают записывать легенды...', 'lore');
         
         const worldContext = `A newly formed world named "${worldName}" with diverse regions. Settlements favor rivers and coasts.`;
         const accumulatedLore: string[] = [];
@@ -251,7 +254,7 @@ Description: [one atmospheric sentence]`;
           
           const poi = poisToName[i];
           const poiType = poi.type?.toLowerCase() || 'location';
-          addLog(`Chronicling the ${poiType}...`, 'info');
+          addLog(`Описываю ${poiType}...`, 'info');
           
           try {
             const lore = await generatePOILore(poi, accumulatedLore, worldContext);
@@ -265,23 +268,23 @@ Description: [one atmospheric sentence]`;
             setProgress(85 + Math.floor((i / poisToName.length) * 10));
           } catch (e) {
             console.warn('[WorldGen] Lore generation failed for POI:', e);
-            addLog(`⚠️ Using default name for ${poi.type}`, 'info');
+            addLog(`⚠️ Использую стандартное имя для ${poi.type}`, 'info');
           }
           
           await new Promise((r) => setTimeout(r, 200));
         }
-      } else if (!apiKey) {
-        addLog('⚠️ No OpenRouter API key - skipping lore generation', 'info');
-        addLog('Configure API key in settings for rich world lore', 'info');
+      } else if (!hasAiProvider) {
+        addLog('⚠️ AI-провайдер не настроен, lore-генерация пропущена', 'info');
+        addLog('Настрой API-ключ или Codex OAuth для расширенного lore', 'info');
       } else if (structures.length === 0) {
-        addLog('⚠️ No structures to chronicle', 'info');
+        addLog('⚠️ Нет структур для летописи', 'info');
       }
 
       // Complete phase
       setCurrentPhase(10);
       setProgress(100);
-      addLog('✨ World generation complete!', 'success');
-      addLog(`Your new world "${worldName}" is ready!`, 'success');
+      addLog('✨ Генерация мира завершена!', 'success');
+      addLog(`Новый мир "${worldName}" готов!`, 'success');
 
       // Call onComplete with the world ID after a brief delay
       if (worldId) {
@@ -291,18 +294,18 @@ Description: [one atmospheric sentence]`;
           onComplete(worldId!);
         }, 1500);
       } else {
-        throw new Error('World generation completed but no world ID available');
+        throw new Error('Генерация мира завершилась, но ID мира отсутствует');
       }
 
     } catch (err) {
       console.error('[WorldGen] Generation error:', err);
-      const errorMsg = err instanceof Error ? err.message : 'Generation failed';
+      const errorMsg = err instanceof Error ? err.message : 'Генерация не удалась';
       setError(errorMsg);
       addLog(`❌ Error: ${errorMsg}`, 'error');
     } finally {
       setIsGenerating(false);
     }
-  }, [isOpen, isGenerating, seed, worldName, apiKey, addLog, generatePOILore, onComplete]);
+  }, [isOpen, isGenerating, seed, worldName, hasAiProvider, addLog, generatePOILore, onComplete]);
 
   // Start generation when modal opens
   useEffect(() => {
@@ -332,7 +335,7 @@ Description: [one atmospheric sentence]`;
 
   if (!isOpen) return null;
 
-  const currentPhaseLabel = GENERATION_PHASES[currentPhase]?.label || 'Processing...';
+  const currentPhaseLabel = GENERATION_PHASES[currentPhase]?.label || 'Обработка...';
 
   return (
     <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 font-mono">
@@ -340,10 +343,10 @@ Description: [one atmospheric sentence]`;
         {/* Header */}
         <div className="border-b border-terminal-green p-4 text-center">
           <h2 className="text-2xl font-bold text-terminal-green animate-pulse">
-            🌍 Forging "{worldName}"...
+            🌍 Создание "{worldName}"...
           </h2>
           <p className="text-terminal-green/60 text-sm mt-1">
-            Seed: {seed || 'random'}
+            Сид: {seed || 'случайный'}
           </p>
         </div>
 
@@ -383,7 +386,7 @@ Description: [one atmospheric sentence]`;
           </div>
           
           <div className="text-center text-terminal-green/60 text-xs">
-            {progress}% complete
+            {progress}% готово
           </div>
 
           {error && (
@@ -399,7 +402,7 @@ Description: [one atmospheric sentence]`;
             onClick={handleCancel}
             className="px-6 py-2 border border-terminal-green/50 text-terminal-green/70 rounded hover:bg-terminal-green/10 transition-colors"
           >
-            Cancel
+            Отмена
           </button>
         </div>
       </div>

@@ -12,11 +12,11 @@ interface PartyPanelProps {
 }
 
 const FORMATION_OPTIONS = [
-  { value: 'standard', label: 'Standard', icon: '|||' },
-  { value: 'defensive', label: 'Defensive', icon: '(o)' },
-  { value: 'aggressive', label: 'Aggressive', icon: '>>>' },
-  { value: 'stealth', label: 'Stealth', icon: '...' },
-  { value: 'scattered', label: 'Scattered', icon: '* *' },
+  { value: 'standard', label: 'Стандарт', icon: '|||' },
+  { value: 'defensive', label: 'Оборона', icon: '(o)' },
+  { value: 'aggressive', label: 'Атака', icon: '>>>' },
+  { value: 'stealth', label: 'Скрытно', icon: '...' },
+  { value: 'scattered', label: 'Россыпь', icon: '* *' },
 ];
 
 export const PartyPanel: React.FC<PartyPanelProps> = ({ 
@@ -46,14 +46,14 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
   if (!activeParty) {
     return (
       <div className="p-4 text-center">
-        <div className="text-terminal-green/50 text-sm mb-3">No party selected</div>
+        <div className="text-terminal-green/50 text-sm mb-3">Группа не выбрана</div>
         <div className="flex flex-col gap-2">
           {onCreateParty && (
             <button
               onClick={onCreateParty}
               className="px-4 py-2 bg-terminal-green/10 border border-terminal-green text-terminal-green text-sm rounded hover:bg-terminal-green/20 transition-colors"
             >
-              + Create Party
+              + Создать группу
             </button>
           )}
           {onCreateCharacter && (
@@ -61,7 +61,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
               onClick={onCreateCharacter}
               className="px-4 py-2 bg-purple-600/20 border border-purple-500 text-purple-300 text-sm rounded hover:bg-purple-600/30 transition-colors"
             >
-              ⚔️ Create Character
+              ⚔️ Создать персонажа
             </button>
           )}
         </div>
@@ -94,7 +94,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
   };
 
   const handleRemoveMember = async (characterId: string) => {
-    if (activePartyId && confirm('Remove this character from the party?')) {
+    if (activePartyId && confirm('Убрать этого персонажа из группы?')) {
       await removeMember(activePartyId, characterId);
     }
   };
@@ -184,12 +184,12 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
                 </span>
                 {isActiveCharacter && (
                   <span className="text-xs bg-terminal-green/20 text-terminal-green px-1.5 py-0.5 rounded">
-                    Playing
+                    Играет
                   </span>
                 )}
               </div>
               <div className="text-xs text-terminal-green/60">
-                Lv{character.level} {character.race ? `${character.race} ` : ''}{character.class}
+                Ур.{character.level} {character.race ? `${character.race} ` : ''}{character.class}
               </div>
               {character.conditions && character.conditions.length > 0 && (
                 <div className="mt-1">
@@ -236,7 +236,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
                   disabled={isLoading}
                   className="px-2 py-1 text-xs bg-terminal-green/20 border border-terminal-green text-terminal-green rounded hover:bg-terminal-green/30 transition-colors disabled:opacity-50 font-medium"
                 >
-                  ▶ Play As
+                  ▶ Играть
                 </button>
               )}
               {member.role !== 'leader' && (
@@ -248,7 +248,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
                   disabled={isLoading}
                   className="px-2 py-1 text-xs bg-yellow-500/10 border border-yellow-500/50 text-yellow-400 rounded hover:bg-yellow-500/20 transition-colors disabled:opacity-50"
                 >
-                  ★ Make Leader
+                  ★ Лидер
                 </button>
               )}
               <button
@@ -259,7 +259,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
                 disabled={isLoading}
                 className="px-2 py-1 text-xs bg-red-500/10 border border-red-500/50 text-red-400 rounded hover:bg-red-500/20 transition-colors disabled:opacity-50"
               >
-                Remove
+                Убрать
               </button>
             </div>
             {member.notes && (
@@ -277,7 +277,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
       {/* Party Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold uppercase tracking-widest text-terminal-green/60">
-          Party ({activeParty.members.length})
+          Группа ({activeParty.members.length})
         </h3>
         <div className="flex items-center gap-2">
           {/* Formation Selector */}
@@ -285,7 +285,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
             <button
               onClick={() => setShowFormation(!showFormation)}
               className="px-2 py-1 text-xs bg-terminal-green/10 border border-terminal-green/30 text-terminal-green rounded hover:bg-terminal-green/20 transition-colors"
-              title="Formation"
+              title="Построение"
             >
               {FORMATION_OPTIONS.find((f) => f.value === activeParty.formation)?.icon || '|||'}
             </button>
@@ -312,7 +312,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
             <button
               onClick={onCreateCharacter}
               className="px-2 py-1 text-xs bg-purple-600/20 border border-purple-500/50 text-purple-300 rounded hover:bg-purple-600/30 transition-colors"
-              title="Create Character"
+              title="Создать персонажа"
             >
               ⚔️
             </button>
@@ -323,7 +323,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
             <button
               onClick={onAddMember}
               className="px-2 py-1 text-xs bg-terminal-green/10 border border-terminal-green text-terminal-green rounded hover:bg-terminal-green/20 transition-colors"
-              title="Add Member"
+              title="Добавить участника"
             >
               +
             </button>
@@ -333,7 +333,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
           <button
             onClick={() => setShowDeletePartyConfirm(true)}
             className="px-2 py-1 text-xs bg-red-500/10 border border-red-500/50 text-red-400 rounded hover:bg-red-500/20 transition-colors"
-            title="Delete Party"
+            title="Удалить группу"
           >
             🗑️
           </button>
@@ -346,14 +346,14 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
           sortedMembers.map(renderMemberCard)
         ) : (
           <div className="text-center text-terminal-green/50 text-sm py-4">
-            No members in party
+            В группе нет участников
             <div className="flex flex-col gap-2 mt-3">
               {onCreateCharacter && (
                 <button
                   onClick={onCreateCharacter}
                   className="mx-auto px-3 py-1 text-xs bg-purple-600/20 border border-purple-500 text-purple-300 rounded hover:bg-purple-600/30 transition-colors"
                 >
-                  ⚔️ Create Character
+                  ⚔️ Создать персонажа
                 </button>
               )}
               {onAddMember && (
@@ -361,7 +361,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
                   onClick={onAddMember}
                   className="mx-auto px-3 py-1 text-xs bg-terminal-green/10 border border-terminal-green text-terminal-green rounded hover:bg-terminal-green/20 transition-colors"
                 >
-                  + Add Existing
+                  + Добавить существующего
                 </button>
               )}
             </div>
@@ -373,7 +373,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
       {!compact && activeParty.currentLocation && (
         <div className="pt-2 border-t border-terminal-green/20">
           <div className="text-xs text-terminal-green/60">
-            <span className="font-bold">Location:</span> {activeParty.currentLocation}
+            <span className="font-bold">Локация:</span> {activeParty.currentLocation}
           </div>
         </div>
       )}
@@ -384,9 +384,9 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
         isOpen={showDeletePartyConfirm}
         onClose={() => setShowDeletePartyConfirm(false)}
         onConfirm={handleDeleteParty}
-        title="Delete Party"
-        message={`Are you sure you want to delete "${activeParty?.name || 'this party'}"? All members will become unassigned.`}
-        confirmText="Delete Party"
+        title="Удалить группу"
+        message={`Удалить "${activeParty?.name || 'эту группу'}"? Все участники станут свободными.`}
+        confirmText="Удалить группу"
         isDanger={true}
         isLoading={isLoading}
       />

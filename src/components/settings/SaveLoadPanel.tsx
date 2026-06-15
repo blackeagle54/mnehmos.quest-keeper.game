@@ -38,7 +38,7 @@ export const SaveLoadPanel: React.FC = () => {
     try {
       const path = await exportActiveCampaignToFile();
       const name = path.split(/[/\\]/).pop() || path;
-      setStatus({ kind: 'ok', text: `Saved campaign to ${name}` });
+      setStatus({ kind: 'ok', text: `Кампания сохранена в ${name}` });
       // Refresh the list if it is already shown so the new file appears — but
       // keep the "Saved campaign to …" message (refresh's default clear would
       // otherwise wipe the save confirmation the player just earned). The save
@@ -47,7 +47,7 @@ export const SaveLoadPanel: React.FC = () => {
       // NOT overwrite the success status with "Failed to list save files".
       if (listed) await refresh({ clearStatus: false, reportError: false });
     } catch (err) {
-      setStatus({ kind: 'error', text: messageOf(err, 'Failed to save campaign') });
+      setStatus({ kind: 'error', text: messageOf(err, 'Не удалось сохранить кампанию') });
     } finally {
       setBusy(false);
     }
@@ -66,11 +66,11 @@ export const SaveLoadPanel: React.FC = () => {
       setFiles(entries);
       setListed(true);
       if (clearStatus && entries.length === 0) {
-        setStatus({ kind: 'ok', text: 'No save files yet.' });
+        setStatus({ kind: 'ok', text: 'Файлов сохранения пока нет.' });
       }
     } catch (err) {
       if (reportError) {
-        setStatus({ kind: 'error', text: messageOf(err, 'Failed to list save files') });
+        setStatus({ kind: 'error', text: messageOf(err, 'Не удалось получить список сохранений') });
       } else {
         // Keep the user-facing status (the save succeeded); log for diagnostics.
         console.error('[SaveLoadPanel] post-save list refresh failed:', err);
@@ -85,10 +85,10 @@ export const SaveLoadPanel: React.FC = () => {
     setStatus(null);
     try {
       await importCampaignFromFile(entry.path);
-      setStatus({ kind: 'ok', text: `Loaded campaign from ${entry.name}` });
+      setStatus({ kind: 'ok', text: `Кампания загружена из ${entry.name}` });
     } catch (err) {
       // No-clobber: a bad file never corrupts current state — we just report it.
-      setStatus({ kind: 'error', text: messageOf(err, 'Failed to load campaign') });
+      setStatus({ kind: 'error', text: messageOf(err, 'Не удалось загрузить кампанию') });
     } finally {
       setBusy(false);
     }
@@ -96,7 +96,7 @@ export const SaveLoadPanel: React.FC = () => {
 
   return (
     <div className="space-y-3" data-testid="save-load-panel">
-      <label className="block text-sm font-bold text-terminal-green">CAMPAIGN SAVES</label>
+      <label className="block text-sm font-bold text-terminal-green">СОХРАНЕНИЯ КАМПАНИИ</label>
 
       <div className="flex gap-2">
         <button
@@ -104,18 +104,18 @@ export const SaveLoadPanel: React.FC = () => {
           onClick={handleSave}
           disabled={busy || !hasActiveCampaign}
           className="flex-1 rounded border border-terminal-green bg-black/50 px-4 py-2 font-mono text-sm text-terminal-green transition-colors hover:bg-terminal-green/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-          title={hasActiveCampaign ? 'Save the active campaign to a file' : 'No active campaign to save'}
+          title={hasActiveCampaign ? 'Сохранить активную кампанию в файл' : 'Нет активной кампании для сохранения'}
         >
-          💾 SAVE TO FILE
+          💾 СОХРАНИТЬ В ФАЙЛ
         </button>
         <button
           data-testid="refresh-saves-button"
           onClick={() => refresh()}
           disabled={busy}
           className="flex-1 rounded border border-terminal-green bg-black/50 px-4 py-2 font-mono text-sm text-terminal-green transition-colors hover:bg-terminal-green/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-          title="List saved campaign files"
+          title="Показать файлы сохранений"
         >
-          📂 LOAD FROM FILE
+          📂 ЗАГРУЗИТЬ ИЗ ФАЙЛА
         </button>
       </div>
 
@@ -147,7 +147,7 @@ export const SaveLoadPanel: React.FC = () => {
                 disabled={busy}
                 className="shrink-0 rounded border border-terminal-green px-2 py-1 text-terminal-green transition-colors hover:bg-terminal-green hover:text-terminal-black focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
               >
-                LOAD
+                ЗАГРУЗИТЬ
               </button>
             </li>
           ))}
@@ -155,8 +155,8 @@ export const SaveLoadPanel: React.FC = () => {
       )}
 
       <p className="text-xs text-terminal-green-dim">
-        Saves are stored in the app data <code>saves/</code> folder. A native file
-        picker is a planned follow-up.
+        Сохранения лежат в папке <code>saves/</code> внутри данных приложения.
+        Нативный выбор файла можно добавить следующим шагом.
       </p>
     </div>
   );

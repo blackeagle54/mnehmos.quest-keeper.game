@@ -7,6 +7,15 @@ import { useTheme } from '../../context/ThemeContext';
 
 // Theme-specific color palettes for the 3D grid
 const GRID_THEMES = {
+  dark: {
+    cellColor: '#313244',
+    sectionColor: '#b4befe',
+    ground: '#181825',
+    highlight: '#b4befe',
+    highlightBlocked: '#f38ba8',
+    compass: '#b4befe',
+    compassNorth: '#f38ba8',
+  },
   terminal: {
     cellColor: '#003300',
     sectionColor: '#00ff41',

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'terminal' | 'fantasy' | 'light';
+type Theme = 'dark' | 'terminal' | 'fantasy' | 'light';
 
 interface ThemeContextType {
   theme: Theme;
@@ -13,11 +13,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [theme, setThemeState] = useState<Theme>(() => {
     // Check localStorage first
     const savedTheme = localStorage.getItem('theme') as Theme;
-    if (savedTheme && ['terminal', 'fantasy', 'light'].includes(savedTheme)) {
+    if (savedTheme && ['dark', 'terminal', 'fantasy', 'light'].includes(savedTheme)) {
       return savedTheme;
     }
-    // Default to terminal
-    return 'terminal';
+    // Default to the soft dark theme
+    return 'dark';
   });
 
   const setTheme = (newTheme: Theme) => {

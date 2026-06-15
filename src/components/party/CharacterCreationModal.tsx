@@ -36,12 +36,12 @@ const POINT_BUY_TOTAL = 27;
 
 const ABILITY_NAMES: (keyof AbilityScores)[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 const ABILITY_LABELS: Record<keyof AbilityScores, string> = {
-  str: 'Strength',
-  dex: 'Dexterity',
-  con: 'Constitution',
-  int: 'Intelligence',
-  wis: 'Wisdom',
-  cha: 'Charisma'
+  str: 'Сила',
+  dex: 'Ловкость',
+  con: 'Телосложение',
+  int: 'Интеллект',
+  wis: 'Мудрость',
+  cha: 'Харизма'
 };
 
 const RACES = [
@@ -231,7 +231,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
   // AI Enhancement
   const enhanceWithAI = useCallback(async () => {
     if (!name.trim()) {
-      setError('Please enter a character name first');
+      setError('Сначала введи имя персонажа');
       return;
     }
 
@@ -245,46 +245,46 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
       // TODO: In future, use LLM API to generate personalized backstory
       // For now, we generate defaults based on class
       const backstories: Record<string, string> = {
-        'Fighter': `${name} was forged in the crucible of war, learning to fight before learning to read. The scars they carry tell stories of battles won and comrades lost.`,
-        'Wizard': `${name} discovered magic in the dusty tomes of an abandoned library, spending years mastering arcane arts that others deemed forbidden.`,
-        'Rogue': `${name} grew up on streets that taught harsh lessons about survival. Quick hands and quicker wits became their tools of trade.`,
-        'Cleric': `${name} heard the calling in a moment of crisis, when divine light pierced through darkness to save them from certain doom.`,
-        'Ranger': `${name} left civilization behind after a tragedy, finding solace and purpose in the wild places where few dare to tread.`,
-        'Paladin': `${name} swore a sacred oath after witnessing injustice that shook their faith, vowing to be the shield others needed.`,
-        'Barbarian': `${name} channels the fury of their ancestors, a tempest of rage that protects their tribe and terrifies their foes.`,
-        'Bard': `${name} collects stories like others collect coins, believing that the right tale at the right moment can change the world.`,
-        'Druid': `${name} speaks for the voiceless—the trees, the beasts, the very earth itself—and defends nature's balance.`,
-        'Monk': `${name} spent years in silent meditation, honing body and mind into a perfect instrument of discipline.`,
-        'Sorcerer': `${name}'s blood carries magic from an ancient source, a power that sometimes feels more like a curse than a gift.`,
-        'Warlock': `${name} made a bargain in a desperate hour, trading an unknown price for powers that whisper secrets in the dark.`,
-        'Artificer': `${name} sees magic as just another form of engineering, building wonders that blur the line between arcane and mechanical.`,
+        'Fighter': `${name} прошел закалку войной и научился держать оружие раньше, чем читать. Шрамы напоминают о выигранных битвах и потерянных товарищах.`,
+        'Wizard': `${name} нашел магию в пыльных книгах заброшенной библиотеки и годами изучал тайные искусства, которых другие боялись.`,
+        'Rogue': `${name} вырос на улицах, где выживание быстро учит осторожности. Ловкие руки и быстрый ум стали главным ремеслом.`,
+        'Cleric': `${name} услышал зов веры в момент кризиса, когда божественный свет прорезал тьму и спас от гибели.`,
+        'Ranger': `${name} ушел от цивилизации после трагедии и нашел цель там, куда немногие осмеливаются ступать.`,
+        'Paladin': `${name} дал священную клятву после несправедливости, которую не смог забыть, и стал щитом для тех, кто слабее.`,
+        'Barbarian': `${name} несет ярость предков, бурю силы, которая защищает своих и пугает врагов.`,
+        'Bard': `${name} собирает истории, как другие собирают монеты, веря, что нужная песня в нужный миг меняет судьбу.`,
+        'Druid': `${name} говорит за тех, у кого нет голоса: деревья, зверей и саму землю, охраняя природный баланс.`,
+        'Monk': `${name} провел годы в молчаливой дисциплине, превращая тело и разум в единый инструмент.`,
+        'Sorcerer': `${name} носит магию в крови; этот дар иногда похож скорее на проклятие, чем на благословение.`,
+        'Warlock': `${name} заключил сделку в отчаянный час, получив силу за цену, которую еще предстоит понять.`,
+        'Artificer': `${name} видит в магии форму инженерии и создает чудеса на границе арканы и механики.`,
       };
 
       const personalities: Record<string, string> = {
-        'Fighter': 'Direct and practical. Respects strength but values loyalty above all. Has a dry sense of humor about violence.',
-        'Wizard': 'Endlessly curious, sometimes to a fault. Tends to lecture. Secretly fears their knowledge is never enough.',
-        'Rogue': 'Charming and evasive. Trust is hard-earned. Always knows the nearest exit.',
-        'Cleric': 'Compassionate but not naive. Struggles with doubt privately. Finds comfort in ritual.',
-        'Ranger': 'Quiet and observant. More comfortable with animals than people. Fiercely protective of the vulnerable.',
-        'Paladin': 'Earnest and idealistic. Sometimes rigid in their beliefs. Haunted by the fear of falling short.',
-        'Barbarian': 'Honest to the point of bluntness. Fiercely loyal. Finds civilized customs baffling.',
-        'Bard': 'Dramatic and charismatic. Never met a stranger. Uses humor to deflect from deeper feelings.',
-        'Druid': 'Patient and philosophical. Views mortal concerns as fleeting. Has strange dietary preferences.',
-        'Monk': 'Centered and deliberate. Speaks rarely but meaningfully. Struggles with attachment.',
-        'Sorcerer': 'Intense and unpredictable. Fears losing control. Dreams vividly and often prophetically.',
-        'Warlock': 'Secretive about their patron. Pragmatic about morality. Haunted by whispers only they can hear.',
-        'Artificer': 'Analytical and inventive. Gets lost in projects. Views problems as puzzles to solve.',
+        'Fighter': 'Прямолинеен и практичен. Уважает силу, но верность ценит выше всего. Сухо шутит даже о насилии.',
+        'Wizard': 'Безмерно любопытен и иногда заходит слишком далеко. Любит объяснять. Тайно боится, что знаний всегда мало.',
+        'Rogue': 'Обаятелен и уклончив. Доверие заслуживает медленно. Всегда знает, где ближайший выход.',
+        'Cleric': 'Сострадателен, но не наивен. В одиночестве борется с сомнениями. Находит покой в ритуалах.',
+        'Ranger': 'Молчалив и наблюдателен. С животными ему проще, чем с людьми. Яростно защищает слабых.',
+        'Paladin': 'Искренен и идеалистичен. Иногда слишком строг в убеждениях. Боится не оправдать клятву.',
+        'Barbarian': 'Честен до резкости. Верен своим. Плохо понимает многие цивилизованные обычаи.',
+        'Bard': 'Драматичен и харизматичен. Легко заводит знакомства. Шутками скрывает глубокие чувства.',
+        'Druid': 'Терпелив и философичен. Считает мирские тревоги мимолетными. Имеет странные вкусы в еде.',
+        'Monk': 'Собран и размерен. Говорит редко, но по делу. С трудом отпускает привязанности.',
+        'Sorcerer': 'Ярок и непредсказуем. Боится потерять контроль. Часто видит вещие сны.',
+        'Warlock': 'Скрытен в вопросах покровителя. Прагматичен в морали. Слышит шепот, недоступный другим.',
+        'Artificer': 'Аналитичен и изобретателен. Легко теряется в проектах. Видит проблемы как головоломки.',
       };
 
-      const defaultBackstory = `${name} comes from humble beginnings, their path shaped by circumstances that drove them to adventure. The road ahead holds answers to questions they've only begun to ask.`;
-      const defaultPersonality = 'Determined and adaptable. Values their companions. Driven by a need to prove themselves.';
+      const defaultBackstory = `${name} вышел из простой жизни, но обстоятельства вытолкнули его на путь приключений. Впереди ответы на вопросы, которые только начинают звучать.`;
+      const defaultPersonality = 'Решителен и гибок. Ценит спутников. Хочет доказать, что способен на большее.';
 
       setBackstory(backstories[actualClass] || defaultBackstory);
       setPersonality(personalities[actualClass] || defaultPersonality);
 
     } catch (err) {
       console.error('AI enhancement failed:', err);
-      setError('Failed to generate character details. Please try again or enter manually.');
+      setError('Не удалось создать детали персонажа. Попробуй еще раз или введи вручную.');
     } finally {
       setIsEnhancing(false);
     }
@@ -293,7 +293,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
   // Create character via MCP
   const createCharacter = useCallback(async () => {
     if (!name.trim()) {
-      setError('Character name is required');
+      setError('Имя персонажа обязательно');
       return;
     }
 
@@ -327,7 +327,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
       console.log('[CharacterCreationModal] MCP connected:', isConnected);
       
       if (!isConnected) {
-        throw new Error('MCP Server not connected. Please restart the application.');
+        throw new Error('MCP-сервер не подключен. Перезапусти приложение.');
       }
 
       const toolArgs = {
@@ -425,7 +425,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-terminal-green/30 bg-terminal-green/5">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-terminal-green">⚔️ CREATE CHARACTER</h2>
+            <h2 className="text-xl font-bold text-terminal-green">⚔️ СОЗДАТЬ ПЕРСОНАЖА</h2>
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-full border border-terminal-green/50 text-terminal-green hover:bg-terminal-green/20 transition-colors flex items-center justify-center"
@@ -446,9 +446,9 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                     : 'bg-terminal-green/10 text-terminal-green hover:bg-terminal-green/20'
                 }`}
               >
-                {tab === 'basic' && '1. Basic Info'}
-                {tab === 'stats' && '2. Abilities'}
-                {tab === 'details' && '3. Details'}
+                {tab === 'basic' && '1. Основа'}
+                {tab === 'stats' && '2. Характеристики'}
+                {tab === 'details' && '3. Детали'}
               </button>
             ))}
           </div>
@@ -462,13 +462,13 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
               {/* Name */}
               <div>
                 <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">
-                  Character Name *
+                  Имя персонажа *
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter character name..."
+                  placeholder="Введите имя персонажа..."
                   className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green text-lg"
                   autoFocus
                 />
@@ -477,7 +477,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
               {/* Race & Class */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">Race</label>
+                  <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">Раса</label>
                   <select
                     value={race}
                     onChange={(e) => setRace(e.target.value)}
@@ -490,13 +490,13 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                       type="text"
                       value={customRace}
                       onChange={(e) => setCustomRace(e.target.value)}
-                      placeholder="Enter race..."
+                      placeholder="Введите расу..."
                       className="w-full mt-2 bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
                     />
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">Class</label>
+                  <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">Класс</label>
                   <select
                     value={charClass}
                     onChange={(e) => setCharClass(e.target.value)}
@@ -509,7 +509,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                       type="text"
                       value={customClass}
                       onChange={(e) => setCustomClass(e.target.value)}
-                      placeholder="Enter class..."
+                      placeholder="Введите класс..."
                       className="w-full mt-2 bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
                     />
                   )}
@@ -519,7 +519,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
               {/* Level & Type */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">Level</label>
+                  <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">Уровень</label>
                   <input
                     type="number"
                     value={level}
@@ -530,16 +530,16 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">Type</label>
+                  <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">Тип</label>
                   <select
                     value={characterType}
                     onChange={(e) => setCharacterType(e.target.value as CharacterType)}
                     className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
                   >
-                    <option value="pc">Player Character</option>
-                    <option value="npc">NPC (Ally)</option>
-                    <option value="neutral">Neutral</option>
-                    <option value="enemy">Enemy</option>
+                    <option value="pc">Персонаж игрока</option>
+                    <option value="npc">НПС-союзник</option>
+                    <option value="neutral">Нейтральный</option>
+                    <option value="enemy">Враг</option>
                   </select>
                 </div>
               </div>
@@ -552,14 +552,14 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
               {/* Method Selection */}
               <div>
                 <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">
-                  Generation Method
+                  Метод генерации
                 </label>
                 <div className="grid grid-cols-4 gap-2">
                   {[
-                    { value: 'roll', label: '🎲 Roll', desc: '4d6 drop lowest' },
-                    { value: 'standard', label: '📊 Standard', desc: '15,14,13,12,10,8' },
-                    { value: 'pointbuy', label: '🎯 Point Buy', desc: '27 points' },
-                    { value: 'manual', label: '✏️ Manual', desc: 'Enter values' },
+                    { value: 'roll', label: '🎲 Броски', desc: '4d6 без меньшей' },
+                    { value: 'standard', label: '📊 Стандарт', desc: '15,14,13,12,10,8' },
+                    { value: 'pointbuy', label: '🎯 Покупка', desc: '27 очков' },
+                    { value: 'manual', label: '✏️ Вручную', desc: 'Ввод чисел' },
                   ].map((method) => (
                     <button
                       key={method.value}
@@ -595,7 +595,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                     onClick={rollAllStats}
                     className="w-full py-2 bg-terminal-green/20 border border-terminal-green text-terminal-green rounded hover:bg-terminal-green/30 transition-colors font-bold"
                   >
-                    🎲 ROLL ALL STATS
+                    🎲 БРОСИТЬ ВСЕ
                   </button>
                   
                   <div className="grid grid-cols-3 gap-3">
@@ -633,7 +633,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
               {statMethod === 'standard' && (
                 <div className="space-y-3">
                   <div className="text-xs text-terminal-green/70 mb-2">
-                    Assign each value to an ability score:
+                    Назначь каждое значение характеристике:
                   </div>
                   <div className="grid grid-cols-6 gap-2 mb-4">
                     {STANDARD_ARRAY.map((value, idx) => (
@@ -673,7 +673,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
               {statMethod === 'pointbuy' && (
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-terminal-green/70">Points Spent:</span>
+                    <span className="text-terminal-green/70">Потрачено очков:</span>
                     <span className={`font-bold ${getPointBuySpent() > POINT_BUY_TOTAL ? 'text-red-500' : 'text-terminal-green'}`}>
                       {getPointBuySpent()} / {POINT_BUY_TOTAL}
                     </span>
@@ -701,7 +701,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                           </button>
                         </div>
                         <div className="text-xs text-center text-terminal-green/60">
-                          {formatMod(getMod(stats[ability]))} • Cost: {POINT_BUY_COSTS[stats[ability]] ?? 0}
+                          {formatMod(getMod(stats[ability]))} • цена: {POINT_BUY_COSTS[stats[ability]] ?? 0}
                         </div>
                       </div>
                     ))}
@@ -742,7 +742,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
               {/* AI Enhancement */}
               <div className="border border-terminal-green/30 rounded-lg p-4 bg-terminal-green/5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-terminal-green uppercase">✨ AI Enhancement</h3>
+                  <h3 className="text-sm font-bold text-terminal-green uppercase">✨ ИИ-детали</h3>
                   <button
                     onClick={enhanceWithAI}
                     disabled={isEnhancing || !name.trim()}
@@ -751,10 +751,10 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                     {isEnhancing ? (
                       <>
                         <span className="animate-spin">⚙️</span>
-                        Generating...
+                        Генерация...
                       </>
                     ) : (
-                      <>🪄 Generate Details</>
+                      <>🪄 Создать детали</>
                     )}
                   </button>
                 </div>
@@ -762,7 +762,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                   type="text"
                   value={enhancePrompt}
                   onChange={(e) => setEnhancePrompt(e.target.value)}
-                  placeholder="Optional: Add context (e.g., 'former soldier', 'seeks revenge')"
+                  placeholder="Необязательно: добавь контекст, например «бывший солдат»"
                   className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green"
                 />
               </div>
@@ -770,12 +770,12 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
               {/* Backstory */}
               <div>
                 <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">
-                  Backstory
+                  Предыстория
                 </label>
                 <textarea
                   value={backstory}
                   onChange={(e) => setBackstory(e.target.value)}
-                  placeholder="Enter character backstory..."
+                  placeholder="Введите предысторию персонажа..."
                   rows={4}
                   className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green resize-none"
                 />
@@ -784,12 +784,12 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
               {/* Personality */}
               <div>
                 <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">
-                  Personality Traits
+                  Черты личности
                 </label>
                 <textarea
                   value={personality}
                   onChange={(e) => setPersonality(e.target.value)}
-                  placeholder="Enter personality traits, quirks, motivations..."
+                  placeholder="Введите черты личности, странности и мотивации..."
                   rows={3}
                   className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green resize-none"
                 />
@@ -797,26 +797,26 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
 
               {/* Preview */}
               <div className="border border-terminal-green/30 rounded-lg p-4 bg-black/50">
-                <h3 className="text-sm font-bold text-terminal-green/70 uppercase mb-3">Preview</h3>
+                <h3 className="text-sm font-bold text-terminal-green/70 uppercase mb-3">Предпросмотр</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-terminal-green/60">Name:</span>{' '}
+                    <span className="text-terminal-green/60">Имя:</span>{' '}
                     <span className="text-terminal-green font-bold">{name || '—'}</span>
                   </div>
                   <div>
-                    <span className="text-terminal-green/60">Level:</span>{' '}
+                    <span className="text-terminal-green/60">Уровень:</span>{' '}
                     <span className="text-terminal-green">{level}</span>
                   </div>
                   <div>
-                    <span className="text-terminal-green/60">Race:</span>{' '}
+                    <span className="text-terminal-green/60">Раса:</span>{' '}
                     <span className="text-terminal-green">{race === 'Other' ? customRace : race}</span>
                   </div>
                   <div>
-                    <span className="text-terminal-green/60">Class:</span>{' '}
+                    <span className="text-terminal-green/60">Класс:</span>{' '}
                     <span className="text-terminal-green">{charClass === 'Other' ? customClass : charClass}</span>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-terminal-green/60">Stats:</span>{' '}
+                    <span className="text-terminal-green/60">Характеристики:</span>{' '}
                     <span className="text-terminal-green">
                       STR {stats.str} • DEX {stats.dex} • CON {stats.con} • INT {stats.int} • WIS {stats.wis} • CHA {stats.cha}
                     </span>
@@ -840,7 +840,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 border border-terminal-green/50 text-terminal-green rounded-lg hover:bg-terminal-green/10 transition-colors"
           >
-            Cancel
+            Отмена
           </button>
           
           <div className="flex-1 flex justify-center gap-2">
@@ -849,7 +849,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                 onClick={() => setActiveTab(activeTab === 'stats' ? 'basic' : 'stats')}
                 className="px-4 py-2 bg-terminal-green/10 text-terminal-green rounded-lg hover:bg-terminal-green/20 transition-colors"
               >
-                ← Back
+                ← Назад
               </button>
             )}
             {activeTab !== 'details' && (
@@ -857,7 +857,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                 onClick={() => setActiveTab(activeTab === 'basic' ? 'stats' : 'details')}
                 className="px-4 py-2 bg-terminal-green/10 text-terminal-green rounded-lg hover:bg-terminal-green/20 transition-colors"
               >
-                Next →
+                Далее →
               </button>
             )}
           </div>
@@ -870,10 +870,10 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
             {loading ? (
               <>
                 <span className="animate-spin">⚙️</span>
-                Creating...
+                Создание...
               </>
             ) : (
-              <>⚔️ Create Character</>
+              <>⚔️ Создать персонажа</>
             )}
           </button>
         </div>

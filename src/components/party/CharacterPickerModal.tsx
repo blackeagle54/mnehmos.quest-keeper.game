@@ -8,20 +8,20 @@ interface CharacterPickerModalProps {
 }
 
 const ROLE_OPTIONS: { value: MemberRole; label: string; description: string }[] = [
-  { value: 'leader', label: 'Leader', description: 'Commands the party' },
-  { value: 'member', label: 'Member', description: 'Full party member' },
-  { value: 'companion', label: 'Companion', description: 'Ally, no loot share' },
-  { value: 'hireling', label: 'Hireling', description: 'Paid helper' },
-  { value: 'prisoner', label: 'Prisoner', description: 'Captive' },
-  { value: 'mount', label: 'Mount', description: 'Riding animal' },
+  { value: 'leader', label: 'Лидер', description: 'Командует группой' },
+  { value: 'member', label: 'Участник', description: 'Полный участник группы' },
+  { value: 'companion', label: 'Спутник', description: 'Союзник без доли добычи' },
+  { value: 'hireling', label: 'Наемник', description: 'Оплачиваемый помощник' },
+  { value: 'prisoner', label: 'Пленник', description: 'Пленный' },
+  { value: 'mount', label: 'Маунт', description: 'Ездовое животное' },
 ];
 
 const CHARACTER_TYPE_FILTERS: { value: CharacterType | 'all'; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'pc', label: 'Players' },
+  { value: 'all', label: 'Все' },
+  { value: 'pc', label: 'Игроки' },
   { value: 'npc', label: 'NPCs' },
-  { value: 'neutral', label: 'Neutral' },
-  { value: 'enemy', label: 'Enemies' },
+  { value: 'neutral', label: 'Нейтральные' },
+  { value: 'enemy', label: 'Враги' },
 ];
 
 export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
@@ -90,7 +90,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
 
   const handleAddMember = async () => {
     if (!targetPartyId || selectedCharacters.size === 0) {
-      setError('Please select at least one character');
+      setError('Выбери хотя бы одного персонажа');
       return;
     }
 
@@ -106,19 +106,19 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
         try {
           const success = await addMember(targetPartyId, charId, selectedRole);
           if (success) successCount++;
-          else errors.push(`Failed to add character IDs ${charId}`);
+          else errors.push(`Не удалось добавить персонажа ${charId}`);
         } catch (e: any) {
-           errors.push(e.message || `Error adding ${charId}`);
+           errors.push(e.message || `Ошибка при добавлении ${charId}`);
         }
       }
       
       if (successCount === selectedCharacters.size) {
         onClose();
       } else {
-         setError(`Added ${successCount}/${selectedCharacters.size} members. Errors: ${errors.join(', ')}`);
+         setError(`Добавлено ${successCount}/${selectedCharacters.size}. Ошибки: ${errors.join(', ')}`);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to add members');
+      setError(err.message || 'Не удалось добавить участников');
     } finally {
       setLoading(false);
     }
@@ -146,9 +146,9 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
       case 'npc':
         return 'NPC';
       case 'neutral':
-        return 'Neutral';
+        return 'Нейтральный';
       case 'enemy':
-        return 'Enemy';
+        return 'Враг';
       default:
         return type;
     }
@@ -160,7 +160,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-terminal-green/30 bg-terminal-green/5">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-terminal-green">+ ADD PARTY MEMBER</h2>
+            <h2 className="text-lg font-bold text-terminal-green">+ ДОБАВИТЬ УЧАСТНИКА</h2>
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-full border border-terminal-green/50 text-terminal-green hover:bg-terminal-green/20 transition-colors flex items-center justify-center"
@@ -177,7 +177,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search characters..."
+            placeholder="Поиск персонажей..."
             className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green text-sm"
           />
 
@@ -231,7 +231,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-terminal-green truncate">{char.name}</div>
                       <div className="text-xs text-terminal-green/60">
-                        Level {char.level} {char.class}
+                        Ур. {char.level} {char.class}
                         {char.race && ` · ${char.race}`}
                       </div>
                     </div>
@@ -243,7 +243,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
 
                     {/* HP */}
                     <div className="text-xs text-terminal-green/60 text-right">
-                      <div>HP</div>
+                      <div>ОЗ</div>
                       <div>
                         {char.hp}/{char.maxHp}
                       </div>
@@ -256,12 +256,12 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
             <div className="p-8 text-center">
               <div className="text-terminal-green/50 text-sm mb-2">
                 {unassignedCharacters.length === 0
-                  ? 'No unassigned characters available'
-                  : 'No characters match your search'}
+                  ? 'Нет свободных персонажей'
+                  : 'Нет персонажей по этому поиску'}
               </div>
               {unassignedCharacters.length === 0 && (
                 <div className="text-xs text-terminal-green/30">
-                  All characters are already in parties
+                  Все персонажи уже состоят в группах
                 </div>
               )}
             </div>
@@ -273,13 +273,13 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
           <div className="p-3 border-t border-terminal-green/20 bg-terminal-green/5">
             <div className="flex justify-between items-center mb-2">
               <label className="text-xs font-bold text-terminal-green/70 uppercase">
-                Assign Role ({selectedCharacters.size})
+                Назначить роль ({selectedCharacters.size})
               </label>
               <button 
                  onClick={() => setSelectedCharacters(new Set())}
                  className="text-xs text-terminal-green/50 hover:text-terminal-green underline cursor-pointer"
               >
-                 Clear
+                 Очистить
               </button>
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -315,7 +315,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 border border-terminal-green/50 text-terminal-green rounded-lg hover:bg-terminal-green/10 transition-colors"
           >
-            Cancel
+            Отмена
           </button>
           <div className="flex-1" />
           <button
@@ -326,10 +326,10 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
             {loading ? (
               <>
                 <span className="animate-spin">*</span>
-                Adding...
+                Добавление...
               </>
             ) : (
-              <>+ Add {selectedCharacters.size > 0 ? `(${selectedCharacters.size})` : ''} to Party</>
+              <>+ Добавить {selectedCharacters.size > 0 ? `(${selectedCharacters.size})` : ''} в группу</>
             )}
           </button>
         </div>

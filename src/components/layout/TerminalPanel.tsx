@@ -24,16 +24,16 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({ className }) => {
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="text-terminal-green hover:text-terminal-green-bright"
-              title="Toggle Sidebar"
+              title="Показать или скрыть список чатов"
             >
               <span className="codicon codicon-menu" />
             </button>
-            <h2 className="text-xl font-bold text-glow uppercase tracking-wider">Terminal_Panel</h2>
+            <h2 className="text-xl font-bold text-glow uppercase tracking-wider">Терминал</h2>
           </div>
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="text-terminal-green hover:text-terminal-green-bright"
-            title="Settings"
+            title="Настройки"
           >
             [CONFIG]
           </button>

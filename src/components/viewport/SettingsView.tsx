@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSettingsStore, LLMProvider } from '../../stores/settingsStore';
 import { ThemeSelector } from '../ThemeSelector';
+import { CodexAuthPanel } from '../settings/CodexAuthPanel';
 
 export const SettingsView: React.FC = () => {
     const {
@@ -22,7 +23,7 @@ export const SettingsView: React.FC = () => {
         <div className="flex items-center justify-center h-full w-full bg-terminal-black p-8">
             <div className="w-full max-w-2xl rounded-lg border border-terminal-green-dim bg-terminal-dim p-8 shadow-lg">
                 <div className="mb-8 border-b border-terminal-green-dim pb-4">
-                    <h2 className="text-2xl font-bold text-terminal-green">⚙️ CONFIGURATION</h2>
+                    <h2 className="text-2xl font-bold text-terminal-green">⚙️ НАСТРОЙКИ</h2>
                 </div>
 
                 <div className="space-y-6">
@@ -33,7 +34,7 @@ export const SettingsView: React.FC = () => {
 
                     {/* Provider Selection */}
                     <div className="space-y-2">
-                        <label className="block text-sm font-bold text-terminal-green">API PROVIDER</label>
+          <label className="block text-sm font-bold text-terminal-green">ПРОВАЙДЕР ИИ</label>
                         <select
                             value={selectedProvider}
                             onChange={(e) => setProvider(e.target.value as LLMProvider)}
@@ -43,36 +44,40 @@ export const SettingsView: React.FC = () => {
                             <option value="anthropic">Anthropic</option>
                             <option value="gemini">Google Gemini</option>
                             <option value="openrouter">OpenRouter</option>
+                            <option value="codex">Codex OAuth</option>
                         </select>
                         <p className="text-xs text-terminal-green-dim">
-                            This sets the active provider for all chat interactions.
+                            Этот провайдер будет использоваться для всех сообщений в чате.
                         </p>
                     </div>
 
-                    {/* API Key */}
-                    <div className="space-y-2">
-                        <label className="block text-sm font-bold text-terminal-green">
-                            {selectedProvider.toUpperCase()} API KEY
-                        </label>
-                        <input
-                            type="password"
-                            value={apiKeys[selectedProvider]}
-                            onChange={(e) => setApiKey(selectedProvider, e.target.value)}
-                            className={inputClasses}
-                            placeholder={`Enter ${selectedProvider} API Key`}
-                        />
-                    </div>
+                    {selectedProvider === 'codex' ? (
+                        <CodexAuthPanel />
+                    ) : (
+                        <div className="space-y-2">
+                            <label className="block text-sm font-bold text-terminal-green">
+                                API-КЛЮЧ {selectedProvider.toUpperCase()}
+                            </label>
+                            <input
+                                type="password"
+                                value={apiKeys[selectedProvider] || ''}
+                                onChange={(e) => setApiKey(selectedProvider, e.target.value)}
+                                className={inputClasses}
+                                placeholder={`Введите API-ключ ${selectedProvider}`}
+                            />
+                        </div>
+                    )}
 
                     {/* Model Selection */}
                     <div className="space-y-2">
-                        <label className="block text-sm font-bold text-terminal-green">MODEL</label>
+                        <label className="block text-sm font-bold text-terminal-green">МОДЕЛЬ</label>
                         <div className="flex gap-2">
                             <input
                                 type="text"
-                                value={providerModels[selectedProvider]}
+                                value={providerModels[selectedProvider] || ''}
                                 onChange={(e) => setModel(selectedProvider, e.target.value)}
                                 className={`flex-1 ${inputClasses}`}
-                                placeholder="Select or type model ID"
+                                placeholder="Выберите или введите ID модели"
                             />
                             <select
                                 onChange={(e) => {
@@ -131,6 +136,13 @@ export const SettingsView: React.FC = () => {
                                         <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                                     </>
                                 )}
+                                {selectedProvider === 'codex' && (
+                                    <>
+                                        <option value="gpt-5.4">GPT-5.4</option>
+                                        <option value="gpt-5.5">GPT-5.5</option>
+                                        <option value="gpt-5.3-codex-spark">GPT-5.3 Codex Spark</option>
+                                    </>
+                                )}
                             </select>
                         </div>
                     </div>
@@ -138,7 +150,7 @@ export const SettingsView: React.FC = () => {
                     {/* System Prompt */}
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                            <label className="block text-sm font-bold text-terminal-green">SYSTEM PROMPT</label>
+                            <label className="block text-sm font-bold text-terminal-green">СИСТЕМНЫЙ ПРОМПТ</label>
                             <button
                                 onClick={() => {
                                     // Clear settings and reload to get fresh default
@@ -147,14 +159,14 @@ export const SettingsView: React.FC = () => {
                                 }}
                                 className="text-xs px-2 py-1 border border-terminal-green-dim text-terminal-green-dim rounded hover:bg-terminal-green/20 hover:text-terminal-green transition-colors"
                             >
-                                🔄 Reset to Default
+                                🔄 Сбросить
                             </button>
                         </div>
                         <textarea
                             value={systemPrompt}
                             onChange={(e) => setSystemPrompt(e.target.value)}
                             className="h-32 w-full rounded border border-terminal-green-dim bg-terminal-dim px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
-                            placeholder="Define the AI's behavior..."
+            placeholder="Опишите поведение ИИ..."
                         />
                     </div>
                 </div>

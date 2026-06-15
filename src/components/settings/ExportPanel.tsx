@@ -69,7 +69,7 @@ export const ExportPanel: React.FC = () => {
         setState({
           status: 'error',
           path: null,
-          error: e instanceof Error ? e.message : 'Export failed',
+          error: e instanceof Error ? e.message : 'Экспорт не удался',
         });
       }
     }
@@ -83,7 +83,7 @@ export const ExportPanel: React.FC = () => {
       {/* --- Adventure log (Markdown) ------------------------------------- */}
       <div>
         <label className="block text-sm font-bold text-terminal-green mb-2">
-          ADVENTURE LOG
+          ЖУРНАЛ ПРИКЛЮЧЕНИЯ
         </label>
 
         <button
@@ -93,8 +93,8 @@ export const ExportPanel: React.FC = () => {
           className="w-full rounded border border-terminal-green bg-black/50 px-4 py-2 font-mono text-sm text-terminal-green transition-colors hover:bg-terminal-green/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         >
           {log.status === 'loading'
-            ? '⏳ EXPORTING…'
-            : '📜 EXPORT ADVENTURE LOG (MARKDOWN)'}
+            ? '⏳ ЭКСПОРТ...'
+            : '📜 ЭКСПОРТ ЖУРНАЛА (MARKDOWN)'}
         </button>
 
         {!hasActiveSession && (
@@ -102,7 +102,7 @@ export const ExportPanel: React.FC = () => {
             data-testid="export-empty-state"
             className="mt-2 text-xs text-terminal-green-dim"
           >
-            Start or load a campaign to export its adventure log.
+            Начните или загрузите кампанию, чтобы экспортировать журнал.
           </p>
         )}
 
@@ -111,13 +111,13 @@ export const ExportPanel: React.FC = () => {
             data-testid="export-success"
             className="mt-2 break-all text-xs text-terminal-green-bright"
           >
-            ✓ Saved to {log.path}
+            ✓ Сохранено: {log.path}
           </p>
         )}
 
         {log.status === 'error' && (
           <p data-testid="export-error" className="mt-2 text-xs text-red-400">
-            ✗ Export failed: {log.error}
+            ✗ Экспорт не удался: {log.error}
           </p>
         )}
       </div>
@@ -125,7 +125,7 @@ export const ExportPanel: React.FC = () => {
       {/* --- Character sheet (PDF) ---------------------------------------- */}
       <div>
         <label className="block text-sm font-bold text-terminal-green mb-2">
-          CHARACTER SHEET
+          ЛИСТ ПЕРСОНАЖА
         </label>
 
         <button
@@ -135,8 +135,8 @@ export const ExportPanel: React.FC = () => {
           className="w-full rounded border border-terminal-green bg-black/50 px-4 py-2 font-mono text-sm text-terminal-green transition-colors hover:bg-terminal-green/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pdf.status === 'loading'
-            ? '⏳ EXPORTING…'
-            : '🧾 EXPORT CHARACTER SHEET (PDF)'}
+            ? '⏳ ЭКСПОРТ...'
+            : '🧾 ЭКСПОРТ ЛИСТА ПЕРСОНАЖА (PDF)'}
         </button>
 
         {!hasActiveCharacter && (
@@ -144,7 +144,7 @@ export const ExportPanel: React.FC = () => {
             data-testid="export-character-pdf-empty-state"
             className="mt-2 text-xs text-terminal-green-dim"
           >
-            Select an active character to export its sheet.
+            Выберите активного персонажа, чтобы экспортировать его лист.
           </p>
         )}
 
@@ -153,7 +153,7 @@ export const ExportPanel: React.FC = () => {
             data-testid="export-character-pdf-success"
             className="mt-2 break-all text-xs text-terminal-green-bright"
           >
-            ✓ Saved to {pdf.path}
+            ✓ Сохранено: {pdf.path}
           </p>
         )}
 
@@ -162,7 +162,7 @@ export const ExportPanel: React.FC = () => {
             data-testid="export-character-pdf-error"
             className="mt-2 text-xs text-red-400"
           >
-            ✗ Export failed: {pdf.error}
+            ✗ Экспорт не удался: {pdf.error}
           </p>
         )}
       </div>

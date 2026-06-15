@@ -63,7 +63,7 @@ StreamingMessage.displayName = 'StreamingMessage';
 export const streamingStyles = `
   .streaming-cursor {
     animation: blink 0.7s infinite;
-    color: var(--terminal-green, #00ff41);
+    color: rgb(var(--text-primary));
   }
   
   @keyframes blink {

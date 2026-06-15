@@ -4,79 +4,79 @@
  * Shown as the first message for new players (first 100 chat sessions).
  */
 
-export const PLAYER_GUIDE = `# 🎮 Welcome to Quest Keeper AI!
+export const PLAYER_GUIDE = `# 🎮 Добро пожаловать в Quest Keeper AI!
 
-You're about to embark on an epic adventure with your personal AI **Dungeon Master**.
+Ты начинаешь приключение с личным AI **Мастером подземелий**.
 
 ---
 
-## 🎭 How It Works
+## 🎭 Как это работает
 
-| You (Player) | The DM (AI) |
+| Ты | Мастер AI |
 |-------------|-------------|
-| Describe what your character does | Narrates the world and story |
-| Make decisions | Controls all NPCs and enemies |
-| Ask questions | Handles dice rolls and rules |
-| Have fun! | Creates challenges and rewards |
+| Описываешь действия персонажа | Описывает мир и историю |
+| Принимаешь решения | Управляет NPC и врагами |
+| Задаешь вопросы | Бросает кости и применяет правила |
+| Играешь | Создает испытания и награды |
 
 ---
 
-## ⌨️ Quick Controls
+## ⌨️ Быстрое управление
 
-| Action | How |
+| Действие | Как |
 |--------|-----|
-| Send message | **Enter** |
-| New chat | Click **+** in sidebar |
-| View character | **Character** tab |
-| Explore map | Click **3D Viewport** |
-| Start Adventure | Type **/start** |
+| Отправить сообщение | **Enter** |
+| Новый чат | Кнопка **+** сбоку |
+| Открыть персонажа | Вкладка **Персонаж** |
+| Осмотреть карту | 3D-сцена |
+| Начать приключение | Команда **/start** |
 
 ---
 
-## 💬 What to Say
+## 💬 Что писать
 
-**Good examples:**
-- "I search the room for hidden doors"
-- "I ask the bartender about the rumors"
-- "I attack the goblin with my sword"
-- "I try to sneak past the guards"
+**Хорошие примеры:**
+- "Я обыскиваю комнату в поисках тайных дверей"
+- "Я спрашиваю бармена о слухах"
+- "Я атакую гоблина мечом"
+- "Я пытаюсь прокрасться мимо стражников"
 
-**The DM handles everything else:**
-- Rolling dice
-- Calculating damage
-- Tracking inventory
-- Managing combat turns
-
----
-
-## ⚔️ During Combat
-
-1. **Wait** for the DM to say it's your turn
-2. **Describe** your action: "I swing at the orc!"
-3. **The DM** rolls dice and narrates the result
-4. **Repeat** until combat ends
-
-> 💡 The DM controls all enemies automatically—you just focus on YOUR character!
+**Мастер сделает остальное:**
+- броски костей
+- расчет урона
+- учет инвентаря
+- ходы в бою
 
 ---
 
-## 🎯 Pro Tips
+## ⚔️ Во время боя
 
-- **Stay in character** for more immersive roleplay
-- **Ask questions** about anything you don't understand
-- **Try creative solutions**—the DM rewards clever thinking
-- **Take notes** on NPC names and important info
-- **Experiment** with skills, spells, and items
+1. **Дождись**, пока Мастер объявит твой ход
+2. **Опиши** действие: "Я бью орка!"
+3. **Мастер** бросит кости и опишет результат
+4. **Повторяй**, пока бой не закончится
+
+> 💡 Мастер сам управляет врагами; тебе нужно сосредоточиться на своем персонаже.
 
 ---
 
-## 🚀 Ready?
+## 🎯 Советы
 
-To begin your adventure, create your character:
+- **Держись роли**, если хочешь более живой отыгрыш
+- **Задавай вопросы**, если что-то непонятно
+- **Пробуй творческие решения**: Мастер любит умные ходы
+- **Записывай** имена NPC и важные факты
+- **Экспериментируй** с навыками, заклинаниями и предметами
 
-> **Type \`/start\` and press Enter**
+---
 
-*Your journey awaits. Will you be a hero... or a legend?*
+## 🚀 Готов?
+
+Чтобы начать приключение, создай персонажа:
+
+> **Введи \`/start\` и нажми Enter**
+
+*Путь ждет. Ты станешь героем... или легендой?*
 `;
 
 /**

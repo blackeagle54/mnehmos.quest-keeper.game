@@ -16,40 +16,40 @@ interface CommandResult {
 // Helper to categorize tools
 function categorizeTools(tools: any[]): Record<string, any[]> {
   const categories: Record<string, any[]> = {
-    'Events': [],
-    'World Generation': [],
-    'Combat': [],
-    'Characters': [],
-    'Inventory': [],
-    'Quests': [],
-    'Math & Dice': [],
-    'Grand Strategy': [],
-    'Turn Management': [],
-    'Other': []
+    'События': [],
+    'Генерация мира': [],
+    'Бой': [],
+    'Персонажи': [],
+    'Инвентарь': [],
+    'Квесты': [],
+    'Кости и математика': [],
+    'Большая стратегия': [],
+    'Управление ходами': [],
+    'Другое': []
   };
 
   for (const tool of tools) {
     const name = tool.name;
     if (name.includes('subscribe') || name.includes('event')) {
-      categories['Events'].push(tool);
+      categories['События'].push(tool);
     } else if (name.includes('world') || name.includes('map') || name.includes('region')) {
-      categories['World Generation'].push(tool);
+      categories['Генерация мира'].push(tool);
     } else if (name.includes('encounter') || name.includes('combat') || name.includes('advance_turn') && !name.includes('nation')) {
-      categories['Combat'].push(tool);
+      categories['Бой'].push(tool);
     } else if (name.includes('character')) {
-      categories['Characters'].push(tool);
+      categories['Персонажи'].push(tool);
     } else if (name.includes('item') || name.includes('inventory') || name.includes('equip')) {
-      categories['Inventory'].push(tool);
+      categories['Инвентарь'].push(tool);
     } else if (name.includes('quest') || name.includes('objective')) {
-      categories['Quests'].push(tool);
+      categories['Квесты'].push(tool);
     } else if (name.includes('dice') || name.includes('probability') || name.includes('algebra') || name.includes('physics')) {
-      categories['Math & Dice'].push(tool);
+      categories['Кости и математика'].push(tool);
     } else if (name.includes('nation') || name.includes('alliance') || name.includes('claim') || name.includes('strategy')) {
-      categories['Grand Strategy'].push(tool);
+      categories['Большая стратегия'].push(tool);
     } else if (name.includes('turn') || name.includes('ready') || name.includes('poll')) {
-      categories['Turn Management'].push(tool);
+      categories['Управление ходами'].push(tool);
     } else {
-      categories['Other'].push(tool);
+      categories['Другое'].push(tool);
     }
   }
 
@@ -66,8 +66,8 @@ function categorizeTools(tools: any[]): Record<string, any[]> {
 // Format tools into readable output
 function formatToolsOutput(tools: any[]): string {
   const categories = categorizeTools(tools);
-  let output = `## MCP Server Connected ✓\n\n`;
-  output += `**Total Tools:** ${tools.length}\n\n`;
+  let output = `## MCP-сервер подключен ✓\n\n`;
+  output += `**Всего инструментов:** ${tools.length}\n\n`;
 
   for (const [category, categoryTools] of Object.entries(categories)) {
     output += `### ${category} (${categoryTools.length})\n`;
@@ -77,7 +77,7 @@ function formatToolsOutput(tools: any[]): string {
     output += '\n';
   }
 
-  output += `---\n*Server: rpg-mcp | Protocol: MCP v2024-11-05*`;
+  output += `---\n*Сервер: rpg-mcp | Протокол: MCP v2024-11-05*`;
   return output;
 }
 
@@ -130,13 +130,13 @@ export const ChatInput: React.FC = () => {
 
   // Command Hints Rotation
   const COMMAND_HINTS = [
-    "ENTER_COMMAND... (Shift+Enter for new line)",
-    "Type /new to start a new campaign",
-    "Type /start to resume your last session",
-    "Type /help for a list of commands",
-    "Type /roll 1d20+5 to roll dice",
-    "Type /inventory to check your gear",
-    "Describe your action: 'I search the room...'"
+    "ВВЕДИ_КОМАНДУ... (Shift+Enter для новой строки)",
+    "Напиши /new, чтобы начать новую кампанию",
+    "Напиши /start, чтобы продолжить последнюю сессию",
+    "Напиши /help, чтобы увидеть список команд",
+    "Напиши /roll 1d20+5, чтобы бросить кости",
+    "Напиши /inventory, чтобы проверить снаряжение",
+    "Опиши действие: «Я осматриваю комнату...»"
   ];
 
   const [hintIndex, setHintIndex] = useState(0);
@@ -151,11 +151,11 @@ export const ChatInput: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [input]);
-  
+
   // Calculate placeholder text
-  const placeholderText = isLoading 
-    ? "PROCESSING..." 
-    : (input.trim() === '' ? COMMAND_HINTS[hintIndex] : "ENTER_COMMAND... (Shift+Enter for new line)");
+  const placeholderText = isLoading
+    ? "ОБРАБОТКА..."
+    : (input.trim() === '' ? COMMAND_HINTS[hintIndex] : "ВВЕДИ_КОМАНДУ... (Shift+Enter для новой строки)");
 
   // Reusable LLM Submission function
   const submitToLLM = useCallback(async (injectedPrompt?: string) => {
@@ -269,7 +269,7 @@ export const ChatInput: React.FC = () => {
             addMessage({
               id: Date.now().toString() + '-err',
               sender: 'system',
-              content: `Error: ${error}`,
+              content: `Ошибка: ${error}`,
               timestamp: Date.now(),
               type: 'error',
             });
@@ -283,7 +283,7 @@ export const ChatInput: React.FC = () => {
       addMessage({
         id: Date.now().toString() + '-err',
         sender: 'system',
-        content: `LLM Error: ${error.message}`,
+        content: `Ошибка LLM: ${error.message}`,
         timestamp: Date.now(),
         type: 'error',
       });
@@ -316,7 +316,7 @@ export const ChatInput: React.FC = () => {
             submitToLLM(initialPrompt);
           }, 100);
         });
-        return { content: `🎭 Opening Campaign Setup Wizard...` };
+        return { content: `🎭 Открываю мастер настройки кампании...` };
       }
       
       case 'start': {
@@ -331,7 +331,7 @@ export const ChatInput: React.FC = () => {
           );
           await sessionStore.switchSession(lastSession.id);
           return { 
-            content: `🎮 **Resuming Campaign:** ${lastSession.name}\n\n📍 ${lastSession.snapshot.locationName}\n👥 ${lastSession.snapshot.partyName} (Lvl ${lastSession.snapshot.level})\n\nType anything to continue your adventure!`
+            content: `🎮 **Продолжаем кампанию:** ${lastSession.name}\n\n📍 ${lastSession.snapshot.locationName}\n👥 ${lastSession.snapshot.partyName} (ур. ${lastSession.snapshot.level})\n\nНапиши любое действие, чтобы продолжить приключение.`
           };
         } else {
           // No sessions exist - launch wizard (don't use Promise to avoid hanging)
@@ -340,13 +340,13 @@ export const ChatInput: React.FC = () => {
               submitToLLM(initialPrompt);
             }, 100);
           });
-          return { content: `🎭 No existing campaigns. Opening setup wizard...` };
+          return { content: `🎭 Кампаний пока нет. Открываю мастер настройки...` };
         }
       }
       
       case 'session': {
         uiStore.openSessionManager();
-        return { content: `📂 **Session Manager opened.** Select a campaign to switch or manage.` };
+        return { content: `📂 **Менеджер сессий открыт.** Выбери кампанию, чтобы переключиться или управлять ей.` };
       }
 
       case 'resume': {
@@ -355,7 +355,7 @@ export const ChatInput: React.FC = () => {
         const charId = gameState.activeCharacter?.id;
         
         if (!worldId || !charId) {
-          return { content: `⚠️ **No active session to resume.**\n\nUse \`/start\` to begin or resume a campaign.`, type: 'error' };
+          return { content: `⚠️ **Нет активной сессии для продолжения.**\n\nИспользуй \`/start\`, чтобы начать или продолжить кампанию.`, type: 'error' };
         }
         
         try {
@@ -363,7 +363,7 @@ export const ChatInput: React.FC = () => {
           const resumePrompt = await buildSessionResumePrompt(worldId, charId);
           
           if (!resumePrompt) {
-            return { content: `📖 **No session history found.** This appears to be a new campaign. Just start playing!` };
+            return { content: `📖 **История сессии не найдена.** Похоже, это новая кампания. Можно сразу играть.` };
           }
           
           // Submit to LLM with the resume prompt
@@ -371,88 +371,88 @@ export const ChatInput: React.FC = () => {
             submitToLLM(resumePrompt);
           }, 100);
           
-          return { content: `📖 **Generating session recap...**\n\n*The DM is preparing your "Previously on..." summary.*` };
+          return { content: `📖 **Готовлю краткое содержание...**\n\n*Мастер вспоминает, что было раньше.*` };
         } catch (error: any) {
-          return { content: `Error generating resume: ${error.message}`, type: 'error' };
+          return { content: `Ошибка при создании резюме: ${error.message}`, type: 'error' };
         }
       }
   
       case 'help': {
         return {
-          content: `## Quest Keeper AI Commands:
+          content: `## Команды Quest Keeper AI:
   
-  ### 📂 Sessions & Campaigns
-  | Command | Description |
+  ### 📂 Сессии и кампании
+  | Команда | Описание |
   |---------|-------------|
-  | \`/start\` | Resume last session or create new campaign |
-  | \`/new\` | Create a new campaign with setup wizard |
-  | \`/session\` | Open session manager to switch campaigns |
-  | \`/resume\` | Trigger "Previously on..." recap from DM |
+  | \`/start\` | Продолжить последнюю сессию или создать кампанию |
+  | \`/new\` | Создать кампанию через мастер настройки |
+  | \`/session\` | Открыть менеджер сессий |
+  | \`/resume\` | Попросить Мастера кратко напомнить прошлые события |
   
-  ### 📡 System
-  | Command | Description |
+  ### 📡 Система
+  | Команда | Описание |
   |---------|-------------|
-  | \`/test\` | Test MCP server connection |
-  | \`/status\` | Show current game state summary |
-  | \`/sync\` | Force sync all state from server |
-  | \`/debug\` | Show debug info (IDs, connection status) |
-  | \`/clear\` | Clear chat history |
-  
-  ### 🎭 Characters
-  | Command | Description |
+  | \`/test\` | Проверить подключение MCP-сервера |
+  | \`/status\` | Показать краткое состояние игры |
+  | \`/sync\` | Принудительно синхронизировать состояние |
+  | \`/debug\` | Показать отладочную информацию |
+  | \`/clear\` | Очистить историю чата |
+
+  ### 🎭 Персонажи
+  | Команда | Описание |
   |---------|-------------|
-  | \`/characters\` | List all characters |
-  | \`/character [id]\` | Show character details |
-  | \`/party\` | Show party summary |
-  
-  ### 🎒 Inventory & Items
-  | Command | Description |
+  | \`/characters\` | Список персонажей |
+  | \`/character [id]\` | Детали персонажа |
+  | \`/party\` | Сводка группы |
+
+  ### 🎒 Инвентарь и предметы
+  | Команда | Описание |
   |---------|-------------|
-  | \`/inventory\` | Show current character's inventory |
-  | \`/items\` | List all item templates |
+  | \`/inventory\` | Инвентарь текущего персонажа |
+  | \`/items\` | Список шаблонов предметов |
   
-  ### 📜 Quests
-  | Command | Description |
+  ### 📜 Квесты
+  | Команда | Описание |
   |---------|-------------|
-  | \`/quests\` | Show active quests |
-  | \`/questlog\` | Show full quest log |
+  | \`/quests\` | Активные квесты |
+  | \`/questlog\` | Полный журнал квестов |
   
-  ### ⚔️ Combat
-  | Command | Description |
+  ### ⚔️ Бой
+  | Команда | Описание |
   |---------|-------------|
-  | \`/combat\` | Show current combat state |
-  | \`/initiative\` | Show initiative order |
+  | \`/combat\` | Текущее состояние боя |
+  | \`/initiative\` | Порядок инициативы |
   
-  ### 🌍 World
-  | Command | Description |
+  ### 🌍 Мир
+  | Команда | Описание |
   |---------|-------------|
-  | \`/worlds\` | List all worlds |
-  | \`/world [id]\` | Show world details |
+  | \`/worlds\` | Список миров |
+  | \`/world [id]\` | Детали мира |
   
-  ### 🎲 Dice & Math
-  | Command | Description |
+  ### 🎲 Кости и математика
+  | Команда | Описание |
   |---------|-------------|
-  | \`/roll <expr>\` | Quick dice roll (e.g., \`/roll 2d6+3\`) |
-  | \`/adv <expr>\` | Roll with advantage |
-  | \`/dis <expr>\` | Roll with disadvantage |
+  | \`/roll <expr>\` | Быстрый бросок, например \`/roll 2d6+3\` |
+  | \`/adv <expr>\` | Бросок с преимуществом |
+  | \`/dis <expr>\` | Бросок с помехой |
   
-  ### 📊 Skill Checks
-  | Command | Description |
+  ### 📊 Проверки
+  | Команда | Описание |
   |---------|-------------|
-  | \`/perception\` | Perception check (uses active character) |
-  | \`/stealth\` | Stealth check |
-  | \`/athletics\` | Athletics check (all 18 skills supported) |
-  | \`/str\`, \`/dex\`, etc. | Raw ability check |
-  | \`/save dex\` | Saving throw (e.g., DEX save) |
-  | Add \`adv\` or \`dis\` | Roll with advantage/disadvantage |
-  
-  ### 🔒 Secret Keeper
-  | Command | Description |
+  | \`/perception\` | Проверка Восприятия активного персонажа |
+  | \`/stealth\` | Проверка Скрытности |
+  | \`/athletics\` | Проверка Атлетики |
+  | \`/str\`, \`/dex\` и т.д. | Проверка характеристики |
+  | \`/save dex\` | Спасбросок, например DEX |
+  | Добавь \`adv\` или \`dis\` | Преимущество или помеха |
+
+  ### 🔒 Секреты
+  | Команда | Описание |
   |---------|-------------|
-  | \`/secrets\` | Show player-hidden secrets for current world/quest |
-  
+  | \`/secrets\` | Показать скрытые от игрока секреты текущего мира |
+
   ---
-  *Type naturally to interact with the AI.*`
+  *Можно писать обычным языком: Мастер поймет действие.*`
         };
       }
   
@@ -463,37 +463,37 @@ export const ChatInput: React.FC = () => {
         const encounterId = combatState.activeEncounterId;
         const combatants = combatState.entities;
   
-        let status = `## Game Status\n\n`;
+        let status = `## Состояние игры\n\n`;
   
         // Character
         if (activeChar) {
-          status += `### Active Character\n`;
-          status += `**${activeChar.name}** - Level ${activeChar.level} ${activeChar.race ? `${activeChar.race} ` : ''}${activeChar.class || ''}\n`;
+          status += `### Активный персонаж\n`;
+          status += `**${activeChar.name}** - ур. ${activeChar.level} ${activeChar.race ? `${activeChar.race} ` : ''}${activeChar.class || ''}\n`;
           status += `HP: ${activeChar.hp?.current || 0}/${activeChar.hp?.max || 0}\n\n`;
         } else {
-          status += `### Active Character\n*No character selected*\n\n`;
+          status += `### Активный персонаж\n*Персонаж не выбран*\n\n`;
         }
   
         // Party
-        status += `### Party\n`;
-        status += party.length > 0 ? `${party.length} member(s)\n\n` : `*No party members*\n\n`;
+        status += `### Группа\n`;
+        status += party.length > 0 ? `${party.length} участник(ов)\n\n` : `*В группе никого нет*\n\n`;
   
         // Inventory
-        status += `### Inventory\n`;
-        status += `${inventory.length} item(s)\n\n`;
+        status += `### Инвентарь\n`;
+        status += `${inventory.length} предмет(ов)\n\n`;
   
         // Combat
-        status += `### Combat\n`;
+        status += `### Бой\n`;
         if (encounterId) {
-          status += `**Active Encounter:** ${encounterId}\n`;
-          status += `Combatants: ${combatants.length}\n\n`;
+          status += `**Активная сцена боя:** ${encounterId}\n`;
+          status += `Участников боя: ${combatants.length}\n\n`;
         } else {
-          status += `*No active combat*\n\n`;
+          status += `*Активного боя нет*\n\n`;
         }
   
         // Connection
-        status += `### MCP Connection\n`;
-        status += mcpManager.gameStateClient.isConnected() ? `✓ Connected` : `✗ Disconnected`;
+        status += `### Подключение MCP\n`;
+        status += mcpManager.gameStateClient.isConnected() ? `✓ Подключено` : `✗ Отключено`;
   
         return { content: status };
       }
@@ -502,9 +502,9 @@ export const ChatInput: React.FC = () => {
         try {
           await gameState.syncState();
           await combatState.syncCombatState();
-          return { content: `✓ State synchronized successfully`, type: 'success' };
+          return { content: `✓ Состояние синхронизировано`, type: 'success' };
         } catch (error: any) {
-          return { content: `✗ Sync failed: ${error.message}`, type: 'error' };
+          return { content: `✗ Синхронизация не удалась: ${error.message}`, type: 'error' };
         }
       }
   
@@ -512,28 +512,28 @@ export const ChatInput: React.FC = () => {
         const activeChar = gameState.activeCharacter;
         const encounterId = combatState.activeEncounterId;
   
-        let debug = `## Debug Info\n\n`;
+        let debug = `## Отладочная информация\n\n`;
         debug += `### IDs\n`;
-        debug += `- Active Character ID: \`${activeChar?.id || 'none'}\`\n`;
-        debug += `- Active Encounter ID: \`${encounterId || 'none'}\`\n\n`;
+        debug += `- ID активного персонажа: \`${activeChar?.id || 'none'}\`\n`;
+        debug += `- ID активной сцены боя: \`${encounterId || 'none'}\`\n\n`;
   
-        debug += `### MCP Status\n`;
-        debug += `- Game State Client: ${mcpManager.gameStateClient.isConnected() ? '✓ Connected' : '✗ Disconnected'}\n`;
-        debug += `- Combat Client: ${mcpManager.combatClient.isConnected() ? '✓ Connected' : '✗ Disconnected'}\n\n`;
+        debug += `### Статус MCP\n`;
+        debug += `- Game State Client: ${mcpManager.gameStateClient.isConnected() ? '✓ Подключено' : '✗ Отключено'}\n`;
+        debug += `- Combat Client: ${mcpManager.combatClient.isConnected() ? '✓ Подключено' : '✗ Отключено'}\n\n`;
   
-        debug += `### Store Sizes\n`;
-        debug += `- Party: ${gameState.party.length}\n`;
-        debug += `- Inventory: ${gameState.inventory.length}\n`;
-        debug += `- Notes: ${gameState.notes.length}\n`;
-        debug += `- Combatants: ${combatState.entities.length}\n`;
-        debug += `- Terrain: ${combatState.terrain.length}\n`;
+        debug += `### Размеры хранилищ\n`;
+        debug += `- Группа: ${gameState.party.length}\n`;
+        debug += `- Инвентарь: ${gameState.inventory.length}\n`;
+        debug += `- Заметки: ${gameState.notes.length}\n`;
+        debug += `- Участники боя: ${combatState.entities.length}\n`;
+        debug += `- Рельеф: ${combatState.terrain.length}\n`;
   
         return { content: debug };
       }
   
       case 'clear': {
         useChatStore.getState().clearHistory();
-        return { content: `✓ Chat cleared`, type: 'success' };
+        return { content: `✓ Чат очищен`, type: 'success' };
       }
 
       case 'playtest': {
@@ -544,12 +544,12 @@ export const ChatInput: React.FC = () => {
         
         if (newState) {
           return { 
-            content: `🧪 **Playtest Mode ENABLED**\n\nThe AI DM is now in testing mode. Try:\n- \`test combat\` - Full combat flow test\n- \`test aoe\` - AoE damage test\n- \`test turns\` - Turn skipping test\n\nType \`/playtest\` again to disable.`,
+            content: `🧪 **Режим тестирования включен**\n\nAI-Мастер теперь проверяет механики. Попробуй:\n- \`test combat\` - полный тест боя\n- \`test aoe\` - тест зонального урона\n- \`test turns\` - тест порядка ходов\n\nВведи \`/playtest\` еще раз, чтобы выключить режим.`,
             type: 'success'
           };
         } else {
           return { 
-            content: `🎭 **Playtest Mode DISABLED**\n\nReturning to normal DM mode.`,
+            content: `🎭 **Режим тестирования выключен**\n\nВозвращаю обычный режим Мастера.`,
             type: 'success'
           };
         }
@@ -564,25 +564,25 @@ export const ChatInput: React.FC = () => {
           // character_manage/list embeds { characters: [...] } under CHARACTER_MANAGE_JSON
           const parsed = extractEmbeddedJson<any>(text, 'CHARACTER_MANAGE_JSON');
           if (!parsed) {
-            return { content: text || `*No characters found*` };
+            return { content: text || `*Персонажи не найдены*` };
           }
           const chars = parsed.characters;
 
           if (!Array.isArray(chars) || chars.length === 0) {
-            return { content: `*No characters found*\n\nUse the AI to create a character: "Create a fighter named Valeros"` };
+            return { content: `*Персонажи не найдены*\n\nПопроси AI создать персонажа, например: "Создай воина по имени Валерос"` };
           }
   
-          let output = `## Characters (${chars.length})\n\n`;
+          let output = `## Персонажи (${chars.length})\n\n`;
           for (const char of chars) {
             output += `### ${char.name}\n`;
             output += `- **ID:** \`${char.id}\`\n`;
-            output += `- **Level:** ${char.level || 1}\n`;
+            output += `- **Уровень:** ${char.level || 1}\n`;
             output += `- **HP:** ${char.hp || 0}/${char.maxHp || 0}\n`;
             output += `- **AC:** ${char.ac || 10}\n\n`;
           }
           return { content: output };
         } catch (error: any) {
-          return { content: `Error listing characters: ${error.message}`, type: 'error' };
+          return { content: `Ошибка при получении списка персонажей: ${error.message}`, type: 'error' };
         }
       }
   
@@ -590,7 +590,7 @@ export const ChatInput: React.FC = () => {
         try {
           const charId = args.trim() || gameState.activeCharacter?.id;
           if (!charId) {
-            return { content: `No character ID provided and no active character.\n\nUsage: \`/character <id>\` or set an active character first.`, type: 'error' };
+            return { content: `Не указан ID персонажа и нет активного персонажа.\n\nИспользование: \`/character <id>\` или сначала выбери активного персонажа.`, type: 'error' };
           }
   
           const result = await mcpManager.gameStateClient.callTool('character_manage', { action: 'get', characterId: charId });
@@ -600,33 +600,33 @@ export const ChatInput: React.FC = () => {
           const char = extractEmbeddedJson<any>(text, 'CHARACTER_MANAGE_JSON');
 
           if (!char || char.error) {
-            return { content: `Character not found: ${charId}`, type: 'error' };
+            return { content: `Персонаж не найден: ${charId}`, type: 'error' };
           }
   
           let output = `## ${char.name}\n\n`;
           output += `**ID:** \`${char.id}\`\n`;
-          output += `**Race:** ${char.race || 'Unknown'}\n`;
-          output += `**Class:** ${char.class || char.characterClass || 'Adventurer'}\n`;
-          output += `**Level:** ${char.level || 1}\n`;
+          output += `**Раса:** ${char.race || 'неизвестно'}\n`;
+          output += `**Класс:** ${char.class || char.characterClass || 'Adventurer'}\n`;
+          output += `**Уровень:** ${char.level || 1}\n`;
           output += `**HP:** ${char.hp || 0}/${char.maxHp || 0}\n`;
           output += `**AC:** ${char.ac || 10}\n\n`;
   
           if (char.stats) {
-            output += `### Ability Scores\n`;
+            output += `### Характеристики\n`;
             output += `| STR | DEX | CON | INT | WIS | CHA |\n`;
             output += `|-----|-----|-----|-----|-----|-----|\n`;
             output += `| ${char.stats.str || 10} | ${char.stats.dex || 10} | ${char.stats.con || 10} | ${char.stats.int || 10} | ${char.stats.wis || 10} | ${char.stats.cha || 10} |\n`;
           }
   
           if (char.inventory && char.inventory.length > 0) {
-            output += `\n### Inventory\n`;
+            output += `\n### Инвентарь\n`;
             for (const item of char.inventory) {
               output += `- ${item.name}${item.quantity > 1 ? ` (x${item.quantity})` : ''}${item.equipped ? ' [E]' : ''}\n`;
             }
           }
   
           if (char.conditions && char.conditions.length > 0) {
-            output += `\n### Conditions\n`;
+            output += `\n### Состояния\n`;
             for (const cond of char.conditions) {
               output += `- ${cond}\n`;
             }
@@ -634,7 +634,7 @@ export const ChatInput: React.FC = () => {
   
           return { content: output };
         } catch (error: any) {
-          return { content: `Error getting character: ${error.message}`, type: 'error' };
+          return { content: `Ошибка при получении персонажа: ${error.message}`, type: 'error' };
         }
       }
   
@@ -646,16 +646,16 @@ export const ChatInput: React.FC = () => {
           const activeParty = partyState.getActiveParty();
           
           if (!activeParty || activeParty.members.length === 0) {
-            return { content: `*No party members*\n\nCreate characters using the AI.` };
+            return { content: `*В группе никого нет*\n\nСоздай персонажей через AI.` };
           }
   
-          let output = `## ${activeParty.name} (${activeParty.members.length} members)\n\n`;
+          let output = `## ${activeParty.name} (${activeParty.members.length} участник(ов))\n\n`;
           for (const member of activeParty.members) {
             const char = member.character;
             const isActive = member.characterId === gameState.activeCharacter?.id;
             const roleIcon = member.role === 'leader' ? '★ ' : member.isActive ? '▶ ' : '';
-            output += `### ${roleIcon}${char.name} ${isActive ? '(Active)' : ''}\n`;
-            output += `**${char.race || 'Unknown'}** ${char.class || 'Adventurer'}, Level ${char.level || 1}\n`;
+            output += `### ${roleIcon}${char.name} ${isActive ? '(активный)' : ''}\n`;
+            output += `**${char.race || 'неизвестно'}** ${char.class || 'Adventurer'}, ур. ${char.level || 1}\n`;
             output += `HP: ${char.hp || 0}/${char.maxHp || 0} | AC: ${char.ac || 10}\n\n`;
           }
           return { content: output };
@@ -663,14 +663,14 @@ export const ChatInput: React.FC = () => {
           // Fallback to gameState.party if partyStore fails
           const party = gameState.party;
           if (party.length === 0) {
-            return { content: `*No party members*\n\nCreate characters using the AI.` };
+            return { content: `*В группе никого нет*\n\nСоздай персонажей через AI.` };
           }
   
-          let output = `## Party (${party.length})\n\n`;
+          let output = `## Группа (${party.length})\n\n`;
           for (const member of party) {
             const isActive = member.id === gameState.activeCharacter?.id;
-            output += `### ${member.name} ${isActive ? '(Active)' : ''}\n`;
-            output += `**${member.race || 'Unknown'}** ${member.class || 'Adventurer'}, Level ${member.level || 1}\n`;
+            output += `### ${member.name} ${isActive ? '(активный)' : ''}\n`;
+            output += `**${member.race || 'неизвестно'}** ${member.class || 'Adventurer'}, ур. ${member.level || 1}\n`;
             output += `HP: ${member.hp?.current || 0}/${member.hp?.max || 0}\n\n`;
           }
           return { content: output };
@@ -681,7 +681,7 @@ export const ChatInput: React.FC = () => {
         try {
           const charId = gameState.activeCharacter?.id;
           if (!charId) {
-            return { content: `No active character. Select a character first.`, type: 'error' };
+            return { content: `Нет активного персонажа. Сначала выбери персонажа.`, type: 'error' };
           }
   
           // Use inventory_manage/get_detailed for full item names
@@ -691,23 +691,23 @@ export const ChatInput: React.FC = () => {
           // inventory_manage/get_detailed embeds { inventory: [{item, quantity, equipped}], totalWeight, capacity }
           const data = extractEmbeddedJson<any>(text, 'INVENTORY_MANAGE_JSON');
           if (!data) {
-            return { content: text || `*Inventory is empty*` };
+            return { content: text || `*Инвентарь пуст*` };
           }
 
           // Consolidated tool returns items under `inventory` (legacy was `items`)
           const items = data.inventory || data.items || [];
           
           if (!Array.isArray(items) || items.length === 0) {
-            return { content: `*Inventory is empty*` };
+            return { content: `*Инвентарь пуст*` };
           }
   
-          let output = `## 🎒 Inventory (${items.length} items)\n`;
-          output += `**Weight:** ${data.totalWeight?.toFixed(1) || 0} / ${data.capacity || 100} lbs\n\n`;
-          output += `| Item | Type | Qty | Weight | Equipped |\n`;
+          let output = `## 🎒 Инвентарь (${items.length} предмет(ов))\n`;
+          output += `**Вес:** ${data.totalWeight?.toFixed(1) || 0} / ${data.capacity || 100} lbs\n\n`;
+          output += `| Предмет | Тип | Кол-во | Вес | Надето |\n`;
           output += `|------|------|-----|--------|----------|\n`;
           for (const entry of items) {
             const item = entry.item || entry;
-            const name = item.name || entry.itemId || 'Unknown';
+            const name = item.name || entry.itemId || 'неизвестно';
             const type = item.type || '-';
             const qty = entry.quantity || 1;
             const weight = item.weight ? `${(item.weight * qty).toFixed(1)}` : '-';
@@ -716,12 +716,12 @@ export const ChatInput: React.FC = () => {
           }
           return { content: output };
         } catch (error: any) {
-          return { content: `Error getting inventory: ${error.message}`, type: 'error' };
+          return { content: `Ошибка при получении инвентаря: ${error.message}`, type: 'error' };
         }
       }
   
       case 'items': {
-        return { content: `Item templates are created with the \`create_item_template\` tool.\n\nAsk the AI: "Create a longsword item template"` };
+        return { content: `Шаблоны предметов создаются инструментом \`create_item_template\`.\n\nПопроси AI: "Создай шаблон длинного меча"` };
       }
   
       case 'quests':
@@ -729,7 +729,7 @@ export const ChatInput: React.FC = () => {
         try {
           const charId = gameState.activeCharacter?.id;
           if (!charId) {
-            return { content: `No active character. Select a character first.`, type: 'error' };
+            return { content: `Нет активного персонажа. Сначала выбери персонажа.`, type: 'error' };
           }
   
           const result = await mcpManager.gameStateClient.callTool('quest_manage', { action: 'get_log', characterId: charId });
@@ -738,22 +738,22 @@ export const ChatInput: React.FC = () => {
           // quest_manage/get_log embeds { quests: [...] } under QUEST_MANAGE_JSON
           const logData = extractEmbeddedJson<any>(text, 'QUEST_MANAGE_JSON');
           if (!logData || logData.error) {
-            return { content: text || `*No active quests*` };
+            return { content: text || `*Активных квестов нет*` };
           }
           const quests = logData.quests;
 
           if (!Array.isArray(quests) || quests.length === 0) {
-            return { content: `*No active quests*\n\nAsk the AI to create a quest.` };
+            return { content: `*Активных квестов нет*\n\nПопроси AI создать квест.` };
           }
   
-          let output = `## Quest Log (${quests.length})\n\n`;
+          let output = `## Журнал квестов (${quests.length})\n\n`;
           for (const quest of quests) {
             output += `### ${quest.name}\n`;
-            output += `**Status:** ${quest.status || 'active'}\n`;
+            output += `**Статус:** ${quest.status || 'active'}\n`;
             output += `${quest.description || ''}\n\n`;
   
             if (quest.objectives && quest.objectives.length > 0) {
-              output += `**Objectives:**\n`;
+              output += `**Цели:**\n`;
               for (const obj of quest.objectives) {
                 const done = obj.completed ? '✓' : '○';
                 output += `- ${done} ${obj.description} (${obj.current || 0}/${obj.required})\n`;
@@ -763,14 +763,14 @@ export const ChatInput: React.FC = () => {
           }
           return { content: output };
         } catch (error: any) {
-          return { content: `Error getting quests: ${error.message}`, type: 'error' };
+          return { content: `Ошибка при получении квестов: ${error.message}`, type: 'error' };
         }
       }
   
       case 'combat': {
         const encounterId = combatState.activeEncounterId;
         if (!encounterId) {
-          return { content: `*No active combat*\n\nStart combat by asking the AI: "Start combat with 2 goblins"` };
+          return { content: `*Активного боя нет*\n\nЧтобы начать бой, попроси AI: "Начни бой с двумя гоблинами"` };
         }
   
         try {
@@ -781,14 +781,14 @@ export const ChatInput: React.FC = () => {
           const encounter = extractEmbeddedJson<any>(text, 'COMBAT_MANAGE_JSON');
 
           if (!encounter || encounter.error) {
-            return { content: `Could not retrieve encounter state`, type: 'error' };
+            return { content: `Не удалось получить состояние боя`, type: 'error' };
           }
   
-          let output = `## Combat - Round ${encounter.round || 1}\n\n`;
-          output += `**Encounter ID:** \`${encounterId}\`\n\n`;
+          let output = `## Бой - раунд ${encounter.round || 1}\n\n`;
+          output += `**ID сцены боя:** \`${encounterId}\`\n\n`;
   
-          output += `### Initiative Order\n`;
-          output += `| # | Name | HP | Conditions |\n`;
+          output += `### Порядок инициативы\n`;
+          output += `| # | Имя | HP | Состояния |\n`;
           output += `|---|------|----|-----------|\n`;
   
           const participants = encounter.participants || [];
@@ -801,17 +801,17 @@ export const ChatInput: React.FC = () => {
   
           return { content: output };
         } catch (error: any) {
-          return { content: `Error getting combat state: ${error.message}`, type: 'error' };
+          return { content: `Ошибка при получении боя: ${error.message}`, type: 'error' };
         }
       }
   
       case 'initiative': {
         const combatants = combatState.entities;
         if (combatants.length === 0) {
-          return { content: `*No combatants*` };
+          return { content: `*Участников боя нет*` };
         }
   
-        let output = `## Initiative Order\n\n`;
+        let output = `## Порядок инициативы\n\n`;
         const turnOrder = combatState.turnOrder || [];
         if (turnOrder.length > 0) {
           for (let i = 0; i < turnOrder.length; i++) {
@@ -837,33 +837,33 @@ export const ChatInput: React.FC = () => {
           // world_manage/list embeds { worlds: [{ id, name, seed, dimensions:{width,height} }] }
           const listData = extractEmbeddedJson<any>(text, 'WORLD_MANAGE_JSON');
           if (!listData || listData.error) {
-            return { content: text || `*No worlds created*` };
+            return { content: text || `*Миры еще не созданы*` };
           }
           const worlds = listData.worlds;
 
           if (!Array.isArray(worlds) || worlds.length === 0) {
-            return { content: `*No worlds created*\n\nAsk the AI: "Create a new world called Eldoria"` };
+            return { content: `*Миры еще не созданы*\n\nПопроси AI: "Создай новый мир Эльдория"` };
           }
 
-          let output = `## Worlds (${worlds.length})\n\n`;
+          let output = `## Миры (${worlds.length})\n\n`;
           for (const world of worlds) {
             const width = world.dimensions?.width ?? world.width;
             const height = world.dimensions?.height ?? world.height;
             output += `### ${world.name}\n`;
             output += `- **ID:** \`${world.id}\`\n`;
-            output += `- **Size:** ${width}x${height}\n`;
-            output += `- **Seed:** ${world.seed}\n\n`;
+            output += `- **Размер:** ${width}x${height}\n`;
+            output += `- **Сид:** ${world.seed}\n\n`;
           }
           return { content: output };
         } catch (error: any) {
-          return { content: `Error listing worlds: ${error.message}`, type: 'error' };
+          return { content: `Ошибка при получении списка миров: ${error.message}`, type: 'error' };
         }
       }
   
       case 'world': {
         const worldId = args.trim();
         if (!worldId) {
-          return { content: `Usage: \`/world <id>\`\n\nUse \`/worlds\` to list available worlds.`, type: 'error' };
+          return { content: `Использование: \`/world <id>\`\n\nКоманда \`/worlds\` покажет доступные миры.`, type: 'error' };
         }
   
         try {
@@ -875,17 +875,17 @@ export const ChatInput: React.FC = () => {
           const world = getData?.world;
 
           if (!getData || getData.error || !world) {
-            return { content: `World not found: ${worldId}`, type: 'error' };
+            return { content: `Мир не найден: ${worldId}`, type: 'error' };
           }
   
           let output = `## ${world.name}\n\n`;
           output += `**ID:** \`${world.id}\`\n`;
-          output += `**Size:** ${world.width}x${world.height}\n`;
-          output += `**Seed:** ${world.seed}\n`;
+          output += `**Размер:** ${world.width}x${world.height}\n`;
+          output += `**Сид:** ${world.seed}\n`;
   
           return { content: output };
         } catch (error: any) {
-          return { content: `Error getting world: ${error.message}`, type: 'error' };
+          return { content: `Ошибка при получении мира: ${error.message}`, type: 'error' };
         }
       }
   
@@ -894,7 +894,7 @@ export const ChatInput: React.FC = () => {
       case 'dis': {
         if (!args.trim()) {
            // Basic usage return
-           return { content: `Usage: \`/${command} <expression>\``, type: 'error' };
+           return { content: `Использование: \`/${command} <выражение>\``, type: 'error' };
         }
         try {
           // Parse dice expression
@@ -916,7 +916,7 @@ export const ChatInput: React.FC = () => {
           let output = `## 🎲 ${args.trim()} ${command !== 'roll' ? `(${command})` : ''}\n\n`;
           if (rollData && !rollData.error) {
             const rolls = Array.isArray(rollData.rolls) ? rollData.rolls.join('\n') : (rollData.rolls ?? '');
-            output += `**Result:** ${rollData.total}\n\n`;
+            output += `**Результат:** ${rollData.total}\n\n`;
             output += '```\n' + rolls + '\n```';
           } else {
             // Fallback: render the raw formatted text
@@ -924,14 +924,14 @@ export const ChatInput: React.FC = () => {
           }
           return { content: output };
         } catch (error: any) {
-          return { content: `Dice roll error: ${error.message}`, type: 'error' };
+          return { content: `Ошибка броска костей: ${error.message}`, type: 'error' };
         }
       }
   
       case 'secrets': {
         try {
           const worldId = gameState.activeWorldId;
-          if (!worldId) return { content: `No active world. Select a world first.`, type: 'error' };
+          if (!worldId) return { content: `Нет активного мира. Сначала выбери мир.`, type: 'error' };
   
           // secret_manage/get_context returns RAW JSON (no embedded envelope), so JSON.parse stays.
           const result = await mcpManager.gameStateClient.callTool('secret_manage', { action: 'get_context', worldId });
@@ -941,12 +941,12 @@ export const ChatInput: React.FC = () => {
           try { secrets = JSON.parse(text); } catch { return { content: text }; }
   
           if (!secrets || Object.keys(secrets).length === 0) {
-            return { content: `*No secrets stored for this world*` };
+            return { content: `*Для этого мира секреты не сохранены*` };
           }
   
-          return { content: `## 🔒 Secrets\n\n${JSON.stringify(secrets, null, 2)}` };
+          return { content: `## 🔒 Секреты\n\n${JSON.stringify(secrets, null, 2)}` };
         } catch (error: any) {
-          return { content: `Error: ${error.message}`, type: 'error' };
+          return { content: `Ошибка: ${error.message}`, type: 'error' };
         }
       }
   
@@ -955,9 +955,9 @@ export const ChatInput: React.FC = () => {
         // never drift behind newly-added tabs (skills/chains/achievements/reputation).
         const validTabs: readonly ActiveTab[] = ALL_TABS;
         const tab = args.trim().toLowerCase() as ActiveTab;
-        if (!validTabs.includes(tab)) return { content: `Valid tabs: ${validTabs.join(', ')}`, type: 'error' };
+        if (!validTabs.includes(tab)) return { content: `Доступные вкладки: ${validTabs.join(', ')}`, type: 'error' };
         uiStore.setActiveTab(tab);
-        return { content: `Switched to **${tab}** tab`, type: 'success' };
+        return { content: `Открыта вкладка **${tab}**`, type: 'success' };
       }
   
       // === SKILL CHECK COMMANDS ===
@@ -980,7 +980,7 @@ export const ChatInput: React.FC = () => {
       case 'animal_handling':
       case 'sleight_of_hand': {
         const charId = gameState.activeCharacter?.id;
-        if (!charId) return { content: `No active character. Select a character first.`, type: 'error' };
+        if (!charId) return { content: `Нет активного персонажа. Сначала выбери персонажа.`, type: 'error' };
         
         // Parse optional advantage/disadvantage from args
         const argLower = args.trim().toLowerCase();
@@ -999,19 +999,19 @@ export const ChatInput: React.FC = () => {
           const text = result?.content?.[0]?.text || '';
           const data = extractEmbeddedJson<any>(text, 'MATH_MANAGE_JSON');
           if (!data || data.error) {
-            return { content: `Skill check error: could not parse roll result`, type: 'error' };
+            return { content: `Ошибка проверки навыка: не удалось разобрать результат броска`, type: 'error' };
           }
 
           const skillName = command.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-          let output = `## 🎲 ${skillName} Check\n\n`;
-          output += `Raw d20: **${data.total}**\n\n`;
-          output += `*Add ability modifier + proficiency manually (auto-bonus tool no longer available).*\n`;
-          if (advantage) output += `⬆️ Advantage\n`;
-          if (disadvantage) output += `⬇️ Disadvantage\n`;
+          let output = `## 🎲 Проверка ${skillName}\n\n`;
+          output += `Чистый d20: **${data.total}**\n\n`;
+          output += `*Добавь модификатор характеристики и proficiency вручную: авто-бонус сейчас недоступен.*\n`;
+          if (advantage) output += `⬆️ Преимущество\n`;
+          if (disadvantage) output += `⬇️ Помеха\n`;
 
           return { content: output };
         } catch (error: any) {
-          return { content: `Skill check error: ${error.message}`, type: 'error' };
+          return { content: `Ошибка проверки навыка: ${error.message}`, type: 'error' };
         }
       }
 
@@ -1023,7 +1023,7 @@ export const ChatInput: React.FC = () => {
       case 'wis':
       case 'cha': {
         const charId = gameState.activeCharacter?.id;
-        if (!charId) return { content: `No active character. Select a character first.`, type: 'error' };
+        if (!charId) return { content: `Нет активного персонажа. Сначала выбери персонажа.`, type: 'error' };
         
         const argLower = args.trim().toLowerCase();
         const advantage = argLower.includes('adv');
@@ -1040,30 +1040,30 @@ export const ChatInput: React.FC = () => {
           const text = result?.content?.[0]?.text || '';
           const data = extractEmbeddedJson<any>(text, 'MATH_MANAGE_JSON');
           if (!data || data.error) {
-            return { content: `Ability check error: could not parse roll result`, type: 'error' };
+            return { content: `Ошибка проверки характеристики: не удалось разобрать результат броска`, type: 'error' };
           }
 
-          let output = `## 🎲 ${command.toUpperCase()} Check\n\n`;
-          output += `Raw d20: **${data.total}**\n`;
-          output += `\n*Add ${command.toUpperCase()} modifier manually (auto-bonus tool no longer available).*\n`;
-          if (advantage) output += `⬆️ Advantage\n`;
-          if (disadvantage) output += `⬇️ Disadvantage\n`;
+          let output = `## 🎲 Проверка ${command.toUpperCase()}\n\n`;
+          output += `Чистый d20: **${data.total}**\n`;
+          output += `\n*Добавь модификатор ${command.toUpperCase()} вручную: авто-бонус сейчас недоступен.*\n`;
+          if (advantage) output += `⬆️ Преимущество\n`;
+          if (disadvantage) output += `⬇️ Помеха\n`;
 
           return { content: output };
         } catch (error: any) {
-          return { content: `Ability check error: ${error.message}`, type: 'error' };
+          return { content: `Ошибка проверки характеристики: ${error.message}`, type: 'error' };
         }
       }
 
       // Saving throw command
       case 'save': {
         const charId = gameState.activeCharacter?.id;
-        if (!charId) return { content: `No active character. Select a character first.`, type: 'error' };
+        if (!charId) return { content: `Нет активного персонажа. Сначала выбери персонажа.`, type: 'error' };
         
         const parts = args.trim().toLowerCase().split(/\s+/);
         const ability = parts[0];
         if (!['str', 'dex', 'con', 'int', 'wis', 'cha'].includes(ability)) {
-          return { content: `Usage: \`/save <ability>\` (e.g., \`/save dex\`)`, type: 'error' };
+          return { content: `Использование: \`/save <характеристика>\` (например, \`/save dex\`)`, type: 'error' };
         }
         
         const advantage = parts.includes('adv');
@@ -1080,18 +1080,18 @@ export const ChatInput: React.FC = () => {
           const text = result?.content?.[0]?.text || '';
           const data = extractEmbeddedJson<any>(text, 'MATH_MANAGE_JSON');
           if (!data || data.error) {
-            return { content: `Saving throw error: could not parse roll result`, type: 'error' };
+            return { content: `Ошибка спасброска: не удалось разобрать результат броска`, type: 'error' };
           }
 
-          let output = `## 🛡️ ${ability.toUpperCase()} Saving Throw\n\n`;
-          output += `Raw d20: **${data.total}**\n`;
-          output += `\n*Add ${ability.toUpperCase()} save bonus manually (auto-bonus tool no longer available).*\n`;
-          if (advantage) output += `⬆️ Advantage\n`;
-          if (disadvantage) output += `⬇️ Disadvantage\n`;
+          let output = `## 🛡️ Спасбросок ${ability.toUpperCase()}\n\n`;
+          output += `Чистый d20: **${data.total}**\n`;
+          output += `\n*Добавь бонус спасброска ${ability.toUpperCase()} вручную: авто-бонус сейчас недоступен.*\n`;
+          if (advantage) output += `⬆️ Преимущество\n`;
+          if (disadvantage) output += `⬇️ Помеха\n`;
 
           return { content: output };
         } catch (error: any) {
-          return { content: `Saving throw error: ${error.message}`, type: 'error' };
+          return { content: `Ошибка спасброска: ${error.message}`, type: 'error' };
         }
       }
 
@@ -1099,12 +1099,12 @@ export const ChatInput: React.FC = () => {
       case 'rest':
       case 'camp': {
         (await import('../../stores/hudStore')).useHudStore.getState().toggleRestPanel();
-        return { content: `⛺ **Rest Menu opened.** Choose Short Rest or Long Rest.` };
+        return { content: `⛺ **Меню отдыха открыто.** Выбери Short Rest или Long Rest.` };
       }
 
       case 'shortrest': {
         const charId = gameState.activeCharacter?.id;
-        if (!charId) return { content: `No active character.`, type: 'error' };
+        if (!charId) return { content: `Нет активного персонажа.`, type: 'error' };
         try {
           // rest_manage returns RAW JSON (no embedded envelope); field names preserved.
           const result = await mcpManager.gameStateClient.callTool('rest_manage', {
@@ -1115,15 +1115,15 @@ export const ChatInput: React.FC = () => {
           const text = result?.content?.[0]?.text || '{}';
           const data = JSON.parse(text);
           await gameState.syncState();
-          return { content: `⛺ **${data.character}** takes a short rest. HP: ${data.previousHp} → ${data.newHp} (+${data.hpRestored})` };
+          return { content: `⛺ **${data.character}** устраивает короткий отдых. HP: ${data.previousHp} → ${data.newHp} (+${data.hpRestored})` };
         } catch (error: any) {
-          return { content: `Rest failed: ${error.message}`, type: 'error' };
+          return { content: `Отдых не удался: ${error.message}`, type: 'error' };
         }
       }
 
       case 'longrest': {
         const charId = gameState.activeCharacter?.id;
-        if (!charId) return { content: `No active character.`, type: 'error' };
+        if (!charId) return { content: `Нет активного персонажа.`, type: 'error' };
         try {
           // rest_manage returns RAW JSON (no embedded envelope); field names preserved.
           const result = await mcpManager.gameStateClient.callTool('rest_manage', {
@@ -1133,11 +1133,11 @@ export const ChatInput: React.FC = () => {
           const text = result?.content?.[0]?.text || '{}';
           const data = JSON.parse(text);
           await gameState.syncState();
-          let msg = `🌙 **${data.character}** takes a long rest. HP: ${data.previousHp} → ${data.newHp} (Full)`;
-          if (data.spellSlotsRestored) msg += `\n**Spell Slots:** Restored`;
+          let msg = `🌙 **${data.character}** завершает долгий отдых. HP: ${data.previousHp} → ${data.newHp} (полностью)`;
+          if (data.spellSlotsRestored) msg += `\n**Ячейки заклинаний:** восстановлены`;
           return { content: msg };
         } catch (error: any) {
-          return { content: `Rest failed: ${error.message}`, type: 'error' };
+          return { content: `Отдых не удался: ${error.message}`, type: 'error' };
         }
       }
 
@@ -1145,7 +1145,7 @@ export const ChatInput: React.FC = () => {
       case 'loot':
       case 'corpses': {
         (await import('../../stores/hudStore')).useHudStore.getState().toggleLootPanel();
-        return { content: `💀 **Loot Panel opened.** Click a corpse to view its inventory.` };
+        return { content: `💀 **Панель добычи открыта.** Нажми на тело, чтобы посмотреть инвентарь.` };
       }
 
       default:
@@ -1191,7 +1191,7 @@ export const ChatInput: React.FC = () => {
           addMessage({
             id: Date.now().toString() + '-err',
             sender: 'system',
-            content: `Unknown command: \`/${command}\``,
+            content: `Неизвестная команда: \`/${command}\``,
             timestamp: Date.now(),
             type: 'error',
           });
@@ -1200,7 +1200,7 @@ export const ChatInput: React.FC = () => {
         addMessage({
           id: Date.now().toString() + '-err',
           sender: 'system',
-          content: `Command error: ${error.message}`,
+          content: `Ошибка команды: ${error.message}`,
           timestamp: Date.now(),
           type: 'error',
         });
@@ -1247,7 +1247,7 @@ export const ChatInput: React.FC = () => {
           disabled={isLoading}
           className="px-6 py-2 border border-terminal-green text-terminal-green hover:bg-terminal-green hover:text-terminal-black transition-all duration-200 uppercase tracking-wider font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? '...' : 'Execute'}
+          {isLoading ? '...' : 'Выполнить'}
         </button>
       </div>
     </form>

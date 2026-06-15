@@ -5,6 +5,7 @@ import { appLogDir } from '@tauri-apps/api/path';
 import { mkdir } from '@tauri-apps/plugin-fs';
 import { SaveLoadPanel } from './SaveLoadPanel';
 import { ExportPanel } from './ExportPanel';
+import { CodexAuthPanel } from './CodexAuthPanel';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -56,7 +57,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-lg border border-terminal-green bg-terminal-black p-6 shadow-glow">
                 <div className="mb-6 flex items-center justify-between border-b border-terminal-green-dim pb-4">
-                    <h2 className="text-xl font-bold text-terminal-green">CONFIGURATION</h2>
+                    <h2 className="text-xl font-bold text-terminal-green">НАСТРОЙКИ</h2>
                     <button
                         onClick={onClose}
                         className="text-terminal-green hover:text-terminal-green-bright"
@@ -68,7 +69,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <div className="space-y-6">
                     {/* Provider Selection */}
                     <div className="space-y-2">
-                        <label className="block text-sm font-bold text-terminal-green">API PROVIDER</label>
+          <label className="block text-sm font-bold text-terminal-green">ПРОВАЙДЕР ИИ</label>
                         <select
                             value={selectedProvider}
                             onChange={(e) => setProvider(e.target.value as LLMProvider)}
@@ -78,36 +79,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             <option value="anthropic">Anthropic</option>
                             <option value="gemini">Google Gemini</option>
                             <option value="openrouter">OpenRouter</option>
+                            <option value="codex">Codex OAuth</option>
                         </select>
                         <p className="text-xs text-terminal-green-dim">
-                            This sets the active provider for all chat interactions.
+                            Этот провайдер будет использоваться для всех сообщений в чате.
                         </p>
                     </div>
 
-                    {/* API Key */}
-                    <div className="space-y-2">
-                        <label className="block text-sm font-bold text-terminal-green">
-                            {selectedProvider.toUpperCase()} API KEY
-                        </label>
-                        <input
-                            type="password"
-                            value={apiKeys[selectedProvider]}
-                            onChange={(e) => setApiKey(selectedProvider, e.target.value)}
-                            className="w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
-                            placeholder={`Enter ${selectedProvider} API Key`}
-                        />
-                    </div>
+                    {selectedProvider === 'codex' ? (
+                        <CodexAuthPanel />
+                    ) : (
+                        <div className="space-y-2">
+                            <label className="block text-sm font-bold text-terminal-green">
+                                API-КЛЮЧ {selectedProvider.toUpperCase()}
+                            </label>
+                            <input
+                                type="password"
+                                value={apiKeys[selectedProvider] || ''}
+                                onChange={(e) => setApiKey(selectedProvider, e.target.value)}
+                                className="w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                                placeholder={`Введите API-ключ ${selectedProvider}`}
+                            />
+                        </div>
+                    )}
 
                     {/* Model Selection */}
                     <div className="space-y-2">
-                        <label className="block text-sm font-bold text-terminal-green">MODEL</label>
+                        <label className="block text-sm font-bold text-terminal-green">МОДЕЛЬ</label>
                         <div className="flex gap-2">
                             <input
                                 type="text"
-                                value={providerModels[selectedProvider]}
+                                value={providerModels[selectedProvider] || ''}
                                 onChange={(e) => setModel(selectedProvider, e.target.value)}
                                 className="flex-1 rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
-                                placeholder="Select or type model ID"
+                                placeholder="Выберите или введите ID модели"
                             />
                             <select
                                 onChange={(e) => {
@@ -162,18 +167,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                                     </>
                                 )}
+                                {selectedProvider === 'codex' && (
+                                    <>
+                                        <option value="gpt-5.4">GPT-5.4</option>
+                                        <option value="gpt-5.5">GPT-5.5</option>
+                                        <option value="gpt-5.3-codex-spark">GPT-5.3 Codex Spark</option>
+                                    </>
+                                )}
                             </select>
                         </div>
                     </div>
 
                     {/* System Prompt */}
                     <div className="space-y-2">
-                        <label className="block text-sm font-bold text-terminal-green">SYSTEM PROMPT</label>
+                        <label className="block text-sm font-bold text-terminal-green">СИСТЕМНЫЙ ПРОМПТ</label>
                         <textarea
                             value={systemPrompt}
                             onChange={(e) => setSystemPrompt(e.target.value)}
                             className="h-24 w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
-                            placeholder="Define the AI's behavior..."
+          placeholder="Опишите поведение ИИ..."
                         />
                     </div>
 
@@ -184,12 +196,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                     {/* Debug / Logs */}
                     <div className="pt-2 border-t border-terminal-green-dim">
-                        <label className="block text-sm font-bold text-terminal-green mb-2">DEBUGGING</label>
+                        <label className="block text-sm font-bold text-terminal-green mb-2">ОТЛАДКА</label>
                         <button
                             onClick={handleOpenLogs}
                             className="w-full rounded border border-terminal-green bg-black/50 px-4 py-2 font-mono text-sm text-terminal-green transition-colors hover:bg-terminal-green/10 focus:outline-none"
                         >
-                            📂 OPEN LOG FOLDER
+                            📂 ОТКРЫТЬ ПАПКУ ЛОГОВ
                         </button>
                     </div>
 
@@ -202,7 +214,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         onClick={onClose}
                         className="rounded bg-terminal-green px-6 py-2 font-bold text-terminal-black hover:bg-terminal-green-bright"
                     >
-                        DONE
+                        ГОТОВО
                     </button>
                 </div>
             </div>

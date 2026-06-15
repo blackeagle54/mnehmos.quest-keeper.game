@@ -55,7 +55,7 @@ export const CampaignSetupWizard: React.FC<CampaignSetupWizardProps> = ({
     activeCharacterId: null,
     startingLocationType: 'tavern',
     startingLocationName: '',
-    startingContext: 'The adventure begins...',
+    startingContext: 'Приключение начинается...',
   });
 
   // Store selectors
@@ -96,7 +96,7 @@ export const CampaignSetupWizard: React.FC<CampaignSetupWizardProps> = ({
         activeCharacterId: null,
         startingLocationType: 'tavern',
         startingLocationName: '',
-        startingContext: 'The adventure begins...',
+        startingContext: 'Приключение начинается...',
       });
       setHasInitialized(true);
     } else if (!isOpen) {
@@ -111,6 +111,14 @@ export const CampaignSetupWizard: React.FC<CampaignSetupWizardProps> = ({
 
   // Navigation
   const steps: WizardStep[] = ['details', 'world', 'party', 'location', 'launch'];
+  const stepLabels: Record<WizardStep, string> = {
+    selection: 'Выбор',
+    details: 'Детали',
+    world: 'Мир',
+    party: 'Группа',
+    location: 'Место',
+    launch: 'Старт',
+  };
   const currentIndex = steps.indexOf(currentStep);
   
   const goNext = () => {
@@ -132,7 +140,7 @@ export const CampaignSetupWizard: React.FC<CampaignSetupWizardProps> = ({
   const handleLaunch = () => {
     // Create the session
     const sessionId = createSession({
-      name: wizardState.campaignName || 'New Campaign',
+      name: wizardState.campaignName || 'Новая кампания',
       description: wizardState.description,
       partyId: wizardState.partyId,
       worldId: wizardState.worldId,
@@ -148,7 +156,8 @@ export const CampaignSetupWizard: React.FC<CampaignSetupWizardProps> = ({
 The party begins their adventure in ${locationName}.
 Context: ${wizardState.startingContext}
 
-Generate an immersive opening scene. Describe the environment, atmosphere, and any immediate hooks or details that draw the party in. Set the tone for an epic adventure!
+Think and keep durable memory/state in English. Write the player-facing opening scene in Russian.
+Generate an immersive opening scene in Russian. Describe the environment, atmosphere, and any immediate hooks or details that draw the party in. Set the tone for an epic adventure.
     `.trim();
 
     onComplete(sessionId, initialPrompt);
@@ -157,12 +166,12 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
   // Location type labels
   const getLocationLabel = (type: WizardState['startingLocationType']) => {
     const labels: Record<WizardState['startingLocationType'], string> = {
-      tavern: 'A cozy tavern',
-      road: 'The open road',
-      dungeon: 'A dungeon entrance',
-      forest: 'A mysterious forest',
-      city: 'A bustling city',
-      custom: 'Custom location',
+      tavern: 'уютная таверна',
+      road: 'открытая дорога',
+      dungeon: 'вход в подземелье',
+      forest: 'таинственный лес',
+      city: 'оживленный город',
+      custom: 'свое место',
     };
     return labels[type];
   };
@@ -178,7 +187,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
         {/* Header */}
         <div className="border-b border-terminal-green p-4 flex justify-between items-center">
           <h2 className="text-xl font-bold text-terminal-green">
-            🎭 New Campaign Setup
+            🎭 Настройка новой кампании
           </h2>
           <button
             onClick={onClose}
@@ -200,7 +209,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                 }`}
               >
                 {idx < currentIndex ? '✓ ' : ''}
-                {step.charAt(0).toUpperCase() + step.slice(1)}
+                {stepLabels[step]}
               </div>
             ))}
           </div>
@@ -220,13 +229,13 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
                     <h3 className="text-lg font-bold text-terminal-green">
-                        📂 Existing Campaigns
+                        📂 Существующие кампании
                     </h3>
                     <button
                         onClick={() => setCurrentStep('details')}
                         className="px-4 py-2 bg-terminal-green text-terminal-black rounded font-bold hover:bg-terminal-green-bright transition-colors"
                     >
-                        + New Campaign
+                        + Новая кампания
                     </button>
                 </div>
 
@@ -240,19 +249,19 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                                 <div>
                                     <h4 className="font-bold text-terminal-green text-lg mb-1">{session.name}</h4>
                                     <p className="text-terminal-green/60 text-xs mb-3">
-                                        Last played: {new Date(session.lastPlayedAt).toLocaleDateString()} at {new Date(session.lastPlayedAt).toLocaleTimeString()}
+                                        Последняя игра: {new Date(session.lastPlayedAt).toLocaleDateString()} в {new Date(session.lastPlayedAt).toLocaleTimeString()}
                                     </p>
                                     
                                     {/* Snapshot Badges */}
                                     <div className="flex flex-wrap gap-2 text-xs">
                                         <span className="px-2 py-1 bg-black/40 rounded text-terminal-green/80 border border-terminal-green/20">
-                                            🌍 {session.snapshot?.locationName || 'Unknown'}
+                                            🌍 {session.snapshot?.locationName || 'неизвестно'}
                                         </span>
                                         <span className="px-2 py-1 bg-black/40 rounded text-terminal-green/80 border border-terminal-green/20">
-                                            👥 {session.snapshot?.memberCount || 0} Members
+                                            👥 {session.snapshot?.memberCount || 0} участник(ов)
                                         </span>
                                         <span className="px-2 py-1 bg-black/40 rounded text-terminal-green/80 border border-terminal-green/20">
-                                            ⚔️ Lvl {session.snapshot?.level || 1}
+                                            ⚔️ Ур. {session.snapshot?.level || 1}
                                         </span>
                                     </div>
                                 </div>
@@ -264,17 +273,17 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                                         }}
                                         className="px-4 py-2 bg-terminal-green/20 border border-terminal-green text-terminal-green rounded hover:bg-terminal-green hover:text-terminal-black transition-colors text-sm font-bold"
                                     >
-                                        Resume
+                                        Продолжить
                                     </button>
                                     <button 
                                         onClick={() => {
-                                            if (confirm(`Are you sure you want to delete "${session.name}"? This will delete all campaign data.`)) {
+                                            if (confirm(`Удалить "${session.name}"? Это удалит все данные кампании.`)) {
                                                 deleteSession(session.id);
                                             }
                                         }}
                                         className="px-4 py-1 bg-red-900/10 border border-red-500/30 text-red-400 rounded hover:bg-red-900/30 transition-colors text-xs"
                                     >
-                                        Delete
+                                        Удалить
                                     </button>
                                 </div>
                             </div>
@@ -282,7 +291,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                     ))}
                     {sessions.length === 0 && (
                          <div className="text-center py-10 text-terminal-green/40 italic">
-                            No active campaigns found. Start a new adventure!
+                            Активных кампаний нет. Начни новое приключение.
                          </div>
                     )}
                 </div>
@@ -293,28 +302,28 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
           {currentStep === 'details' && (
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-terminal-green mb-4">
-                📜 Campaign Details
+                📜 Детали кампании
               </h3>
               <div>
                 <label className="block text-terminal-green text-sm mb-1">
-                  Campaign Name *
+                  Название кампании *
                 </label>
                 <input
                   type="text"
                   value={wizardState.campaignName}
                   onChange={(e) => updateField('campaignName', e.target.value)}
-                  placeholder="e.g., Curse of Strahd"
+                  placeholder="например, Проклятие Страда"
                   className="w-full bg-terminal-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright"
                 />
               </div>
               <div>
                 <label className="block text-terminal-green text-sm mb-1">
-                  Description (optional)
+                  Описание (необязательно)
                 </label>
                 <textarea
                   value={wizardState.description}
                   onChange={(e) => updateField('description', e.target.value)}
-                  placeholder="Brief description of the campaign..."
+                  placeholder="Краткое описание кампании..."
                   rows={3}
                   className="w-full bg-terminal-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright resize-none"
                 />
@@ -326,21 +335,21 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
           {currentStep === 'world' && (
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-terminal-green mb-4">
-                🌍 Select World
+                🌍 Выбор мира
               </h3>
               
               {/* Create New World Option */}
               <div className="border-2 border-dashed border-terminal-green/50 rounded p-4 mb-4">
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-2xl">✨</span>
-                  <span className="text-terminal-green font-bold">Create New World</span>
+                  <span className="text-terminal-green font-bold">Создать новый мир</span>
                 </div>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newWorldName}
                     onChange={(e) => setNewWorldName(e.target.value)}
-                    placeholder="Enter world name..."
+                    placeholder="Введите название мира..."
                     className="flex-1 bg-terminal-black border border-terminal-green rounded px-3 py-2 text-terminal-green text-sm focus:outline-none focus:border-terminal-green-bright"
                   />
                   <button
@@ -353,7 +362,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                     disabled={!newWorldName}
                     className="px-4 py-2 bg-terminal-green text-terminal-black rounded font-bold text-sm hover:bg-terminal-green-bright transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    🌍 Generate
+                    🌍 Создать
                   </button>
                 </div>
               </div>
@@ -361,12 +370,12 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
               {/* Existing Worlds */}
               {worlds.length === 0 ? (
                 <p className="text-terminal-green/70 text-sm">
-                  No existing worlds. Create one above!
+                  Готовых миров нет. Создай новый выше.
                 </p>
               ) : (
                 <>
                   <div className="text-terminal-green/60 text-xs uppercase tracking-wider mb-2">
-                    Or select existing world:
+                    Или выбери существующий мир:
                   </div>
                   <div className="grid gap-2 max-h-48 overflow-y-auto">
                     {worlds.map((world: any) => (
@@ -384,10 +393,10 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                           onClick={() => updateField('worldId', world.id)}
                         >
                           <div className="font-bold text-terminal-green">
-                            {world.name || 'Unnamed World'}
+                            {world.name || 'Безымянный мир'}
                           </div>
                           <div className="text-sm text-terminal-green/60">
-                            {world.width && world.height ? `${world.width}x${world.height}` : 'Unknown size'}
+                            {world.width && world.height ? `${world.width}x${world.height}` : 'размер неизвестен'}
                           </div>
                         </div>
                         
@@ -399,13 +408,13 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                               setCurrentStep('party');
                             }}
                             className="px-3 py-1 bg-terminal-green/20 border border-terminal-green text-terminal-green text-xs rounded hover:bg-terminal-green/30 transition-colors"
-                            title="Load this world and continue"
+                            title="Загрузить этот мир и продолжить"
                           >
-                            Load
+                            Загрузить
                           </button>
                           <button
                             onClick={async () => {
-                              if (confirm(`Delete world "${world.name}"? This cannot be undone.`)) {
+                              if (confirm(`Удалить мир "${world.name}"? Это действие нельзя отменить.`)) {
                                 try {
                                   await mcpManager.gameStateClient.callTool('world_manage', { action: 'delete', id: world.id });
                                   // Refresh worlds list
@@ -416,12 +425,12 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                                   }
                                 } catch (e) {
                                   console.error('Failed to delete world:', e);
-                                  alert('Failed to delete world');
+                                  alert('Не удалось удалить мир');
                                 }
                               }
                             }}
                             className="px-3 py-1 bg-red-900/30 border border-red-500/50 text-red-400 text-xs rounded hover:bg-red-900/50 transition-colors"
-                            title="Delete this world"
+                            title="Удалить этот мир"
                           >
                             🗑️
                           </button>
@@ -440,20 +449,20 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-terminal-green">
-                  👥 Select Party
+                  👥 Выбор группы
                 </h3>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setShowCharacterModal(true)}
                     className="px-3 py-1 bg-terminal-green/20 border border-terminal-green text-terminal-green text-xs rounded hover:bg-terminal-green/30 transition-colors"
                   >
-                    + New Character
+                    + Новый персонаж
                   </button>
                   <button
                     onClick={() => setShowPartyModal(true)}
                     className="px-3 py-1 bg-terminal-green/20 border border-terminal-green text-terminal-green text-xs rounded hover:bg-terminal-green/30 transition-colors"
                   >
-                    + New Party
+                    + Новая группа
                   </button>
                 </div>
               </div>
@@ -464,31 +473,31 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                       {/* Characters exist but no party yet */}
                       <div className="bg-terminal-green/10 border border-terminal-green/30 rounded p-3 mb-4">
                         <p className="text-terminal-green font-bold mb-2">
-                          ✓ {unassignedCharacters.length} Character{unassignedCharacters.length > 1 ? 's' : ''} Ready
+                          ✓ Готово персонажей: {unassignedCharacters.length}
                         </p>
                         <div className="flex flex-wrap gap-2 justify-center">
                           {unassignedCharacters.map(char => (
                             <span key={char.id} className="px-2 py-1 bg-terminal-green/20 rounded text-xs text-terminal-green">
-                              {char.name} - Lvl {char.level} {char.class}
+                              {char.name} - ур. {char.level} {char.class}
                             </span>
                           ))}
                         </div>
                       </div>
                       <p className="text-terminal-green/70 mb-4">
-                        Now create a party to organize your adventurers!
+                        Теперь создай группу для своих героев.
                       </p>
                       <div className="flex gap-3 justify-center">
                         <button
                           onClick={() => setShowPartyModal(true)}
                           className="px-4 py-2 bg-terminal-green text-terminal-black rounded font-bold text-sm hover:bg-terminal-green-bright transition-colors"
                         >
-                          👥 Create Party
+                          👥 Создать группу
                         </button>
                         <button
                           onClick={() => setShowCharacterModal(true)}
                           className="px-4 py-2 border border-terminal-green text-terminal-green rounded font-bold text-sm hover:bg-terminal-green/20 transition-colors"
                         >
-                          + Add Another Character
+                          + Добавить персонажа
                         </button>
                       </div>
                     </>
@@ -496,23 +505,23 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                     <>
                       {/* No characters yet */}
                       <p className="text-terminal-green/70 mb-4">
-                        No parties available yet.
+                        Групп пока нет.
                       </p>
                       <p className="text-terminal-green/50 text-sm mb-4">
-                        First create a character, then create a party to organize your adventurers.
+                        Сначала создай персонажа, затем группу.
                       </p>
                       <div className="flex gap-3 justify-center">
                         <button
                           onClick={() => setShowCharacterModal(true)}
                           className="px-4 py-2 bg-terminal-green text-terminal-black rounded font-bold text-sm hover:bg-terminal-green-bright transition-colors"
                         >
-                          ⚔️ Create Character
+                          ⚔️ Создать персонажа
                         </button>
                         <button
                           onClick={() => setShowPartyModal(true)}
                           className="px-4 py-2 border border-terminal-green text-terminal-green rounded font-bold text-sm hover:bg-terminal-green/20 transition-colors"
                         >
-                          👥 Create Party
+                          👥 Создать группу
                         </button>
                       </div>
                     </>
@@ -536,12 +545,12 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                         >
                           <div className="font-bold text-terminal-green">{party.name}</div>
                           <div className="text-sm text-terminal-green/60">
-                            Status: {party.status}
+                            Статус: {party.status}
                           </div>
                         </div>
                         <button
                           onClick={async () => {
-                            if (confirm(`Delete party "${party.name}"? This cannot be undone.`)) {
+                            if (confirm(`Удалить группу "${party.name}"? Это действие нельзя отменить.`)) {
                               try {
                                 await mcpManager.gameStateClient.callTool('party_manage', { action: 'delete', partyId: party.id });
                                 await usePartyStore.getState().syncParties();
@@ -550,12 +559,12 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                                 }
                               } catch (e) {
                                 console.error('Failed to delete party:', e);
-                                alert('Failed to delete party');
+                                alert('Не удалось удалить группу');
                               }
                             }
                           }}
                           className="px-2 py-1 bg-red-900/30 border border-red-500/50 text-red-400 text-xs rounded hover:bg-red-900/50 transition-colors ml-2"
-                          title="Delete party"
+                          title="Удалить группу"
                         >
                           🗑️
                         </button>
@@ -567,7 +576,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                   {selectedParty && selectedParty.members.length > 0 && (
                     <div>
                       <label className="block text-terminal-green text-sm mb-2">
-                        🎭 Play as (POV Character)
+                        🎭 Играть за персонажа
                       </label>
                       <div className="grid gap-2">
                         {selectedParty.members.map((member) => (
@@ -583,11 +592,11 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                               className="flex-1 cursor-pointer text-sm text-terminal-green"
                               onClick={() => updateField('activeCharacterId', wizardState.activeCharacterId === member.characterId ? null : member.characterId)}
                             >
-                              {member.character?.name || 'Unknown'} - Lvl {member.character?.level || '?'} {member.character?.class || ''}
+                              {member.character?.name || 'неизвестно'} - ур. {member.character?.level || '?'} {member.character?.class || ''}
                             </div>
                             <button
                               onClick={async () => {
-                                if (confirm(`Remove "${member.character?.name}" from party?`)) {
+                                if (confirm(`Убрать "${member.character?.name}" из группы?`)) {
                                   try {
                                     await mcpManager.gameStateClient.callTool('party_manage', {
                                       action: 'remove_member',
@@ -600,12 +609,12 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                                     }
                                   } catch (e) {
                                     console.error('Failed to remove member:', e);
-                                    alert('Failed to remove character from party');
+                                    alert('Не удалось убрать персонажа из группы');
                                   }
                                 }
                               }}
                               className="px-2 py-1 bg-red-900/30 border border-red-500/50 text-red-400 text-xs rounded hover:bg-red-900/50 transition-colors ml-2"
-                              title="Remove from party"
+                              title="Убрать из группы"
                             >
                               🗑️
                             </button>
@@ -623,7 +632,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
           {currentStep === 'location' && (
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-terminal-green mb-4">
-                📍 Starting Location
+                📍 Начальная локация
               </h3>
               <div className="grid grid-cols-3 gap-2 mb-4">
                 {(['tavern', 'road', 'dungeon', 'forest', 'city', 'custom'] as const).map((type) => (
@@ -636,12 +645,12 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                         : 'border-terminal-green/30 text-terminal-green/70 hover:border-terminal-green'
                     }`}
                   >
-                    {type === 'tavern' && '🍺 Tavern'}
-                    {type === 'road' && '🛤️ Road'}
-                    {type === 'dungeon' && '🏰 Dungeon'}
-                    {type === 'forest' && '🌲 Forest'}
-                    {type === 'city' && '🏙️ City'}
-                    {type === 'custom' && '✏️ Custom'}
+                    {type === 'tavern' && '🍺 Таверна'}
+                    {type === 'road' && '🛤️ Дорога'}
+                    {type === 'dungeon' && '🏰 Подземелье'}
+                    {type === 'forest' && '🌲 Лес'}
+                    {type === 'city' && '🏙️ Город'}
+                    {type === 'custom' && '✏️ Своя'}
                   </button>
                 ))}
               </div>
@@ -649,13 +658,13 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
               {wizardState.startingLocationType === 'custom' && (
                 <div>
                   <label className="block text-terminal-green text-sm mb-1">
-                    Location Name
+                    Название локации
                   </label>
                   <input
                     type="text"
                     value={wizardState.startingLocationName}
                     onChange={(e) => updateField('startingLocationName', e.target.value)}
-                    placeholder="e.g., The Sunken Temple"
+                    placeholder="например, Затонувший храм"
                     className="w-full bg-terminal-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright"
                   />
                 </div>
@@ -664,7 +673,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-terminal-green text-sm">
-                    Starting Context
+                    Стартовый контекст
                   </label>
                   <button
                     onClick={async () => {
@@ -676,10 +685,11 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                           m => m.characterId === wizardState.activeCharacterId
                         )?.character?.name || 'the hero';
                         
-                        const prompt = `Generate a brief, atmospheric opening scene (2-3 sentences) for a D&D campaign. 
+                        const prompt = `Generate a brief, atmospheric opening scene (2-3 sentences) for a D&D campaign.
 The party "${partyName}" begins their adventure in a ${locationType}${wizardState.startingLocationName ? ` called "${wizardState.startingLocationName}"` : ''}.
 The main POV character is ${characterName}.
 Set the mood, describe the immediate surroundings, and hint at adventure to come.
+Think and keep durable memory/state in English. Write the final scene in Russian.
 Be evocative and concise.`;
 
                         const response = await llmService.sendMessage([
@@ -689,7 +699,7 @@ Be evocative and concise.`;
                         updateField('startingContext', response.trim());
                       } catch (e) {
                         console.error('Failed to generate context:', e);
-                        alert('Failed to generate context. Check your API key in settings.');
+                        alert('Не удалось создать контекст. Проверь API-ключ в настройках.');
                       } finally {
                         setIsGeneratingContext(false);
                       }
@@ -697,13 +707,13 @@ Be evocative and concise.`;
                     disabled={isGeneratingContext}
                     className="px-3 py-1 bg-terminal-green/20 border border-terminal-green text-terminal-green text-xs rounded hover:bg-terminal-green/30 transition-colors disabled:opacity-50 disabled:cursor-wait"
                   >
-                    {isGeneratingContext ? '✨ Generating...' : '✨ Generate w/ AI'}
+                    {isGeneratingContext ? '✨ Генерация...' : '✨ Сгенерировать AI'}
                   </button>
                 </div>
                 <textarea
                   value={wizardState.startingContext}
                   onChange={(e) => updateField('startingContext', e.target.value)}
-                  placeholder="What's happening as the adventure begins?"
+                  placeholder="Что происходит в начале приключения?"
                   rows={3}
                   disabled={isGeneratingContext}
                   className="w-full bg-terminal-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright resize-none disabled:opacity-50"
@@ -716,30 +726,30 @@ Be evocative and concise.`;
           {currentStep === 'launch' && (
             <div className="space-y-4 text-center">
               <h3 className="text-2xl font-bold text-terminal-green mb-4">
-                🚀 Ready to Launch!
+                🚀 Готово к запуску
               </h3>
               <div className="bg-terminal-green/10 border border-terminal-green/30 rounded p-4 text-left">
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="text-terminal-green/70">Campaign:</div>
+                  <div className="text-terminal-green/70">Кампания:</div>
                   <div className="text-terminal-green font-bold">
-                    {wizardState.campaignName || 'Unnamed Campaign'}
+                    {wizardState.campaignName || 'Безымянная кампания'}
                   </div>
-                  <div className="text-terminal-green/70">World:</div>
+                  <div className="text-terminal-green/70">Мир:</div>
                   <div className="text-terminal-green">
-                    {worlds.find(w => w.id === wizardState.worldId)?.name || 'Default'}
+                    {worlds.find(w => w.id === wizardState.worldId)?.name || 'по умолчанию'}
                   </div>
-                  <div className="text-terminal-green/70">Party:</div>
+                  <div className="text-terminal-green/70">Группа:</div>
                   <div className="text-terminal-green">
-                    {parties.find(p => p.id === wizardState.partyId)?.name || 'None'}
+                    {parties.find(p => p.id === wizardState.partyId)?.name || 'нет'}
                   </div>
-                  <div className="text-terminal-green/70">Location:</div>
+                  <div className="text-terminal-green/70">Локация:</div>
                   <div className="text-terminal-green">
                     {wizardState.startingLocationName || getLocationLabel(wizardState.startingLocationType)}
                   </div>
                 </div>
               </div>
               <p className="text-terminal-green/70 text-sm">
-                Click "Begin Adventure" to start your campaign. The AI will generate an opening scene based on your choices.
+                Нажми «Начать приключение», чтобы запустить кампанию. AI создаст вступительную сцену на основе выбора.
               </p>
             </div>
           )}
@@ -751,7 +761,7 @@ Be evocative and concise.`;
             onClick={currentIndex === 0 ? (sessions.length > 0 && currentStep === 'details' ? () => setCurrentStep('selection') : onClose) : goBack}
             className="px-4 py-2 border border-terminal-green/50 text-terminal-green/70 rounded hover:bg-terminal-green/10 transition-colors"
           >
-            {currentIndex === 0 && (sessions.length === 0 || currentStep === 'selection') ? 'Cancel' : '← Back'}
+            {currentIndex === 0 && (sessions.length === 0 || currentStep === 'selection') ? 'Отмена' : '← Назад'}
           </button>
           
           {currentStep === 'launch' ? (
@@ -760,7 +770,7 @@ Be evocative and concise.`;
               disabled={!wizardState.campaignName}
               className="px-6 py-2 bg-terminal-green text-terminal-black rounded font-bold hover:bg-terminal-green-bright transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              🎮 Begin Adventure
+              🎮 Начать приключение
             </button>
           ) : (
             <button
@@ -768,7 +778,7 @@ Be evocative and concise.`;
               disabled={currentStep === 'details' && !wizardState.campaignName}
               className="px-4 py-2 border border-terminal-green text-terminal-green rounded hover:bg-terminal-green hover:text-terminal-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Next →
+              Далее →
             </button>
           )}
         </div>

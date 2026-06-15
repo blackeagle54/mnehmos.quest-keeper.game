@@ -82,7 +82,7 @@ export const PartySelector: React.FC<PartySelectorProps> = ({ onCreateParty, cla
         className="flex items-center gap-2 px-3 py-2 bg-terminal-green/10 border border-terminal-green/50 rounded-lg hover:bg-terminal-green/20 hover:border-terminal-green transition-all min-w-[180px]"
       >
         {isLoading ? (
-          <span className="animate-pulse text-terminal-green/70">Loading...</span>
+          <span className="animate-pulse text-terminal-green/70">Загрузка...</span>
         ) : activeParty ? (
           <>
             <span className={`w-2 h-2 rounded-full ${getStatusColor(activeParty.status)}`} />
@@ -92,9 +92,9 @@ export const PartySelector: React.FC<PartySelectorProps> = ({ onCreateParty, cla
               </div>
               <div className="text-xs text-terminal-green/60">
                 {playingCharacterName ? (
-                  <span>Playing: <span className="text-terminal-green">{playingCharacterName}</span></span>
+                  <span>Играет: <span className="text-terminal-green">{playingCharacterName}</span></span>
                 ) : (
-                  <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+                  <span>{memberCount} участник(ов)</span>
                 )}
               </div>
             </div>
@@ -109,7 +109,7 @@ export const PartySelector: React.FC<PartySelectorProps> = ({ onCreateParty, cla
           </>
         ) : (
           <>
-            <span className="text-sm text-terminal-green/70">No Party Selected</span>
+            <span className="text-sm text-terminal-green/70">Группа не выбрана</span>
             <svg
               className={`w-4 h-4 text-terminal-green/60 transition-transform ${isOpen ? 'rotate-180' : ''}`}
               fill="none"
@@ -128,7 +128,7 @@ export const PartySelector: React.FC<PartySelectorProps> = ({ onCreateParty, cla
           {/* Header */}
           <div className="px-3 py-2 border-b border-terminal-green/30 bg-terminal-green/5">
             <div className="text-xs font-bold uppercase tracking-widest text-terminal-green/60">
-              Select Party
+              Выбор группы
             </div>
           </div>
 
@@ -157,9 +157,9 @@ export const PartySelector: React.FC<PartySelectorProps> = ({ onCreateParty, cla
                       </div>
                       <div className="text-xs text-terminal-green/60">
                         {activeChar ? (
-                          <span>Playing: {activeChar.character.name}</span>
+                          <span>Играет: {activeChar.character.name}</span>
                         ) : (
-                          <span>{count} member{count !== 1 ? 's' : ''} · {party.status}</span>
+                          <span>{count} участник(ов) · {party.status}</span>
                         )}
                       </div>
                     </div>
@@ -173,7 +173,7 @@ export const PartySelector: React.FC<PartySelectorProps> = ({ onCreateParty, cla
               })
             ) : (
               <div className="px-3 py-4 text-center text-terminal-green/50 text-sm">
-                No parties created yet
+                Группы еще не созданы
               </div>
             )}
           </div>
@@ -191,7 +191,7 @@ export const PartySelector: React.FC<PartySelectorProps> = ({ onCreateParty, cla
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="text-sm font-medium">Create New Party</span>
+                <span className="text-sm font-medium">Создать новую группу</span>
               </button>
             </div>
           )}

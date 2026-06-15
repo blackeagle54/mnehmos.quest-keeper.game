@@ -28,7 +28,7 @@ const markdownComponents = {
   code({ inline, className, children, ...props }: any) {
     return inline ? (
       <code
-        className="bg-terminal-black/50 px-1 rounded text-terminal-amber"
+        className="bg-terminal-black/50 px-1 rounded text-terminal-amber font-mono"
         {...props}
       >
         {children}
@@ -129,7 +129,7 @@ const ChatMessage = memo(({
             : 'text-terminal-green'
         }`}
       >
-        {isUser ? 'USER_INPUT' : isAI ? 'SYSTEM_RESPONSE' : 'SYSTEM_NOTICE'}
+        {isUser ? 'ВВОД ИГРОКА' : isAI ? 'ОТВЕТ МАСТЕРА' : 'СИСТЕМНОЕ СООБЩЕНИЕ'}
       </div>
       <div
         className={`${
@@ -167,7 +167,7 @@ const SessionSelector = memo(() => {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2 border-b border-terminal-green-dim bg-terminal-black/50">
-      <span className="text-xs text-terminal-green/60 uppercase tracking-wider">Session:</span>
+      <span className="text-xs text-terminal-green/60 uppercase tracking-wider">Сессия:</span>
       <select
         value={currentSessionId || ''}
         onChange={(e) => switchSession(e.target.value)}
@@ -182,14 +182,14 @@ const SessionSelector = memo(() => {
       <button
         onClick={createSession}
         className="px-3 py-1 bg-terminal-green/10 border border-terminal-green text-terminal-green text-sm rounded hover:bg-terminal-green/20 transition-colors"
-        title="New Chat"
+        title="Новый чат"
       >
-        ✨ New
+        ✨ Новый
       </button>
       <button
         onClick={clearHistory}
         className="px-3 py-1 bg-terminal-amber/10 border border-terminal-amber text-terminal-amber text-sm rounded hover:bg-terminal-amber/20 transition-colors"
-        title="Clear Current Chat"
+        title="Очистить текущий чат"
       >
         🗑️
       </button>
@@ -197,7 +197,7 @@ const SessionSelector = memo(() => {
         <button
           onClick={() => currentSessionId && deleteSession(currentSessionId)}
           className="px-3 py-1 bg-red-900/20 border border-red-500 text-red-500 text-sm rounded hover:bg-red-900/30 transition-colors"
-          title="Delete Current Session"
+        title="Удалить текущую сессию"
         >
           ❌
         </button>
@@ -265,7 +265,7 @@ export const ChatHistory: React.FC = () => {
     <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-8">
       {showPlayerGuide ? (
         // Show player guide for new users
-        <div className="max-w-2xl text-left bg-terminal-black/30 border border-terminal-green/30 rounded-lg p-6 overflow-y-auto max-h-[80vh]">
+        <div className="markdown-content leading-relaxed max-w-2xl text-left bg-terminal-black/30 border border-terminal-green/30 rounded-lg p-6 overflow-y-auto max-h-[80vh]">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeHighlight]}
@@ -279,22 +279,22 @@ export const ChatHistory: React.FC = () => {
         <>
           <div className="text-terminal-green/60 text-6xl">⚔️</div>
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-terminal-green">Ready for Adventure</h2>
+            <h2 className="text-2xl font-bold text-terminal-green">Готово к приключению</h2>
             <p className="text-terminal-green/70 max-w-md">
-              Tell the Dungeon Master what you'd like to do. Describe your character's actions, ask questions, or begin your quest!
+              Скажи Мастеру, что хочешь сделать. Опиши действия персонажа, задай вопрос или начни квест.
             </p>
             <div className="flex justify-center gap-6 pt-2">
               <div className="flex items-center gap-2">
                 <code className="px-2 py-0.5 bg-terminal-amber/10 border border-terminal-amber/30 rounded text-terminal-amber font-bold text-xs">/new</code>
-                <span className="text-terminal-green/60 text-xs uppercase tracking-wider">New</span>
+                <span className="text-terminal-green/60 text-xs uppercase tracking-wider">Новая</span>
               </div>
               <div className="flex items-center gap-2">
                 <code className="px-2 py-0.5 bg-terminal-amber/10 border border-terminal-amber/30 rounded text-terminal-amber font-bold text-xs">/start</code>
-                <span className="text-terminal-green/60 text-xs uppercase tracking-wider">Resume</span>
+                <span className="text-terminal-green/60 text-xs uppercase tracking-wider">Продолжить</span>
               </div>
               <div className="flex items-center gap-2">
                 <code className="px-2 py-0.5 bg-terminal-amber/10 border border-terminal-amber/30 rounded text-terminal-amber font-bold text-xs">/help</code>
-                <span className="text-terminal-green/60 text-xs uppercase tracking-wider">Help</span>
+                <span className="text-terminal-green/60 text-xs uppercase tracking-wider">Помощь</span>
               </div>
             </div>
           </div>
@@ -302,8 +302,8 @@ export const ChatHistory: React.FC = () => {
             <p className="text-terminal-amber text-sm">{currentTip}</p>
           </div>
           <div className="text-terminal-green/40 text-xs mt-4">
-            Press <kbd className="px-2 py-1 bg-terminal-green/10 border border-terminal-green/30 rounded">Enter</kbd> to send • 
-            <kbd className="px-2 py-1 bg-terminal-green/10 border border-terminal-green/30 rounded ml-1">Shift+Enter</kbd> for new line
+            <kbd className="px-2 py-1 bg-terminal-green/10 border border-terminal-green/30 rounded">Enter</kbd> отправить •
+            <kbd className="px-2 py-1 bg-terminal-green/10 border border-terminal-green/30 rounded ml-1">Shift+Enter</kbd> новая строка
           </div>
         </>
       )}
@@ -318,7 +318,7 @@ export const ChatHistory: React.FC = () => {
       {/* Messages Area - with CSS containment for performance */}
       <div
         ref={containerRef}
-        className="flex-grow overflow-y-auto p-4 space-y-4 font-mono"
+        className="flex-grow overflow-y-auto p-4 space-y-4"
         style={{
           // CSS containment improves scroll performance
           contain: 'strict',
